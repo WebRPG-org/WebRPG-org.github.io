@@ -1,1 +1,5 @@
 *.log
+webrpg-site/node_modules/
+webrpg-site/dist/
+webrpg-site/dist-ssr/
+webrpg-site/*.local
