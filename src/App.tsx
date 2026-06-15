@@ -378,7 +378,6 @@ const GameCard = React.memo(function GameCard({
               <a href={game.repo} target="_blank" rel="noreferrer">
                 <GitFork className="icon-small" />
                 {copy.source}
-                <ExternalLink className="icon-small action-tail" />
               </a>
             </Button>
           </div>
