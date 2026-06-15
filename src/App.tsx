@@ -105,6 +105,8 @@ type RawGame = {
   pagesUrl?: string
   entryPath?: string
   cover?: string
+  totalSize?: number
+  dataSize?: number
 }
 
 type Game = RawGame & {
@@ -170,14 +172,21 @@ function App() {
   }, [language])
 
   const sortedGames = React.useMemo(() => {
-    const collator = new Intl.Collator(language === "en" ? "en" : "zh", {
-      sensitivity: "base",
-      usage: "sort",
-    })
+    return [...games].sort((a, b) => {
+      // Sort by dataSize descending if available (larger game first)
+      const aSize = a.dataSize ?? -1
+      const bSize = b.dataSize ?? -1
+      if (aSize !== bSize) {
+        return bSize - aSize
+      }
 
-    return [...games].sort((a, b) =>
-      collator.compare(a.displayTitle, b.displayTitle)
-    )
+      // Fall back to alphabetical by title
+      const collator = new Intl.Collator(language === "en" ? "en" : "zh", {
+        sensitivity: "base",
+        usage: "sort",
+      })
+      return collator.compare(a.displayTitle, b.displayTitle)
+    })
   }, [games, language])
 
   const visibleGames = React.useMemo(() => {
