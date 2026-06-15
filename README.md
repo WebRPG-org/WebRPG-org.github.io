@@ -13,3 +13,5 @@ Project pages are expected at:
 ```text
 https://webrpg.org/<repository-name>/
 ```
+
+Entries marked `invalid_structure` in `list.json` are hidden from the catalog.

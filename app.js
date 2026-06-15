@@ -63,6 +63,11 @@ const state = {
   observer: null,
 };
 
+const HIDDEN_STATUSES = new Set([
+  "invalid_structure",
+  "deleted_invalid_structure",
+]);
+
 const elements = {
   grid: document.querySelector("#game-grid"),
   status: document.querySelector("#status-line"),
@@ -83,7 +88,9 @@ async function init() {
   try {
     const list = await fetchGameList();
     const forkNames = buildForkNameMap(list);
-    state.games = list.map((game) => normalizeGame(game, forkNames));
+    state.games = list
+      .filter((game) => !HIDDEN_STATUSES.has(game.status))
+      .map((game) => normalizeGame(game, forkNames));
     elements.totalCount.textContent = String(state.games.length);
     render();
   } catch (error) {
