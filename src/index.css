@@ -447,8 +447,8 @@ html[lang^="zh"] {
 
 .size-pill {
   max-width: 100%;
-  background: #d8ecff !important;
-  color: #0d2430 !important;
+  background: #fff4d8 !important;
+  color: #24160d !important;
   font-size: 0.68rem;
   line-height: 1.45;
 }
