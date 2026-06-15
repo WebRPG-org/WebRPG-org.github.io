@@ -190,7 +190,7 @@ html[lang^="zh"] {
   inset: 0;
   z-index: -2;
   background-color: #15100b;
-  background-image: url("/assets/background-desktop.png");
+  background-image: url("/assets/background-desktop.jpg");
   background-position: top center;
   background-repeat: no-repeat;
   background-size: cover;
@@ -565,7 +565,7 @@ html[lang^="zh"] {
 
 @media (max-width: 920px) {
   .site-shell::before {
-    background-image: url("/assets/background-mobile.png");
+    background-image: url("/assets/background-mobile.jpg");
     background-position: top center;
   }
 

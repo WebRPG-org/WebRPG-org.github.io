@@ -19,7 +19,7 @@ const LIST_ENDPOINTS = [
   "/list.json",
 ]
 
-const EMPTY_BOOK = "/assets/empty-book.png"
+const EMPTY_BOOK = "/assets/empty-book.jpg"
 const LOGO = "/assets/logo.png"
 const SITE_TITLE = "Web RPG"
 
