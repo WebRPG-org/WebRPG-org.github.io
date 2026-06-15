@@ -173,6 +173,13 @@ function App() {
 
   const sortedGames = React.useMemo(() => {
     return [...games].sort((a, b) => {
+      // Prioritize verified games with a cover image
+      const aCoverScore = a.status === "verified" && a.cover ? 1 : 0
+      const bCoverScore = b.status === "verified" && b.cover ? 1 : 0
+      if (aCoverScore !== bCoverScore) {
+        return bCoverScore - aCoverScore
+      }
+
       // Sort by dataSize descending if available (larger game first)
       const aSize = a.dataSize ?? -1
       const bSize = b.dataSize ?? -1
