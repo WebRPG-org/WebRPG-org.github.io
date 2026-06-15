@@ -66,6 +66,7 @@ const state = {
 const HIDDEN_STATUSES = new Set([
   "invalid_structure",
   "deleted_invalid_structure",
+  "duplicate_name",
 ]);
 
 const elements = {

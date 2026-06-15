@@ -14,4 +14,4 @@ Project pages are expected at:
 https://webrpg.org/<repository-name>/
 ```
 
-Entries marked `invalid_structure` in `list.json` are hidden from the catalog.
+Entries marked `invalid_structure`, `deleted_invalid_structure`, or `duplicate_name` in `list.json` are hidden from the catalog.
