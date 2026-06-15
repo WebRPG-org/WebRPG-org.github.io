@@ -1,109 +1,23 @@
 <!doctype html>
 <html lang="zh-Hans">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="color-scheme" content="dark">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="WebRPG.org is a playable index of RPG Maker web games mirrored on GitHub Pages."
-    >
-    <title>WebRPG.org</title>
-    <link rel="icon" href="assets/logo.png" type="image/png">
-    <link rel="apple-touch-icon" href="assets/logo.png">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;600;700&family=Press+Start+2P&family=ZCOOL+KuaiLe&display=swap"
-      rel="stylesheet"
-    >
-    <link rel="stylesheet" href="styles.css">
-    <script defer src="app.js"></script>
+      content="WebRPG is a browser-playable RPG Maker catalog."
+    />
+    <meta name="theme-color" content="#2c1c12" />
+    <link rel="icon" type="image/png" href="/assets/logo.png" />
+    <link rel="apple-touch-icon" href="/assets/logo.png" />
+    <title>Web RPG</title>
+    <script
+      defer
+      src="https://insight.ravelloh.com/script.js?siteId=5ace6623-f51b-4571-8f60-e0473ea3317b"
+    ></script>
   </head>
   <body>
-    <div class="page-noise" aria-hidden="true"></div>
-
-    <header class="site-header">
-      <a class="brand" href="/" aria-label="WebRPG.org">
-        <img class="brand-logo" src="assets/logo.png" alt="">
-        <span class="brand-copy">
-          <span class="brand-name">WebRPG.org</span>
-          <span class="brand-subtitle" data-i18n="subtitle">GitHub 上的 Web RPG 目录</span>
-        </span>
-      </a>
-
-      <nav class="language-switcher" aria-label="Language">
-        <button class="lang-button" type="button" data-lang="zh-Hans">中文</button>
-        <button class="lang-button" type="button" data-lang="en">EN</button>
-        <button class="lang-button" type="button" data-lang="ja">日本語</button>
-      </nav>
-    </header>
-
-    <main class="page-shell">
-      <section class="command-board" aria-labelledby="catalog-title">
-        <div class="title-block">
-          <p class="eyebrow" data-i18n="eyebrow">RPG Maker Web Archive</p>
-          <h1 id="catalog-title" data-i18n="title">可直接游玩的 RPG Maker 目录</h1>
-        </div>
-
-        <div class="search-panel">
-          <label class="search-label" for="game-search" data-i18n="searchLabel">搜索</label>
-          <input
-            id="game-search"
-            class="search-input"
-            type="search"
-            autocomplete="off"
-            spellcheck="false"
-            data-i18n-placeholder="searchPlaceholder"
-            placeholder="输入标题、作者或仓库名"
-          >
-        </div>
-
-        <div class="stat-strip" aria-live="polite">
-          <div class="stat-cell">
-            <span class="stat-value" id="visible-count">0</span>
-            <span class="stat-label" data-i18n="visibleGames">显示</span>
-          </div>
-          <div class="stat-cell">
-            <span class="stat-value" id="total-count">0</span>
-            <span class="stat-label" data-i18n="totalGames">总数</span>
-          </div>
-          <div class="stat-cell">
-            <span class="stat-value">MV</span>
-            <span class="stat-label" data-i18n="engine">引擎</span>
-          </div>
-        </div>
-      </section>
-
-      <section class="catalog-section" aria-label="Game catalog">
-        <div class="status-line" id="status-line" role="status" data-i18n="loading">正在读取目录...</div>
-        <div class="game-grid" id="game-grid"></div>
-      </section>
-    </main>
-
-    <template id="game-card-template">
-      <article class="game-card">
-        <a class="cover-link" data-role="play-link" target="_blank" rel="noopener">
-          <div class="cover-frame">
-            <img class="cover-image" alt="" loading="lazy">
-            <div class="cover-fallback" aria-hidden="true">
-              <span class="fallback-mark">WR</span>
-            </div>
-          </div>
-        </a>
-        <div class="game-card-body">
-          <h2 class="game-title"></h2>
-          <p class="repo-line"></p>
-          <div class="meta-row">
-            <span class="engine-pill"></span>
-            <span class="repo-pill"></span>
-          </div>
-          <div class="action-row">
-            <a class="play-button" data-role="play-link" target="_blank" rel="noopener" data-i18n="play">开始</a>
-            <a class="source-button" target="_blank" rel="noopener" data-i18n="source">源码</a>
-          </div>
-        </div>
-      </article>
-    </template>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

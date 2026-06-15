@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - ".github/workflows/deploy.yml"
-      - "webrpg-site/**"
 
 permissions:
   contents: read
@@ -29,14 +26,12 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: webrpg-site/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        working-directory: webrpg-site
         run: npm ci
 
       - name: Build
-        working-directory: webrpg-site
         run: npm run build
 
       - name: Configure Pages
@@ -45,7 +40,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: webrpg-site/dist
+          path: dist
 
   deploy:
     needs: build

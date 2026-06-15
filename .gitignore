@@ -1,5 +1,16 @@
 *.log
-webrpg-site/node_modules/
-webrpg-site/dist/
-webrpg-site/dist-ssr/
-webrpg-site/*.local
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

@@ -1,17 +1,21 @@
-# WebRPG.org
+# React + TypeScript + Vite + shadcn/ui
 
-Static catalog site for WebRPG.org.
+This is a template for a new Vite project with React, TypeScript, and shadcn/ui.
 
-The site fetches the public index from:
+## Adding components
 
-```text
-https://raw.githubusercontent.com/WebRPG-org/index/main/list.json
+To add components to your app, run the following command:
+
+```bash
+npx shadcn@latest add button
 ```
 
-Project pages are expected at:
+This will place the ui components in the `src/components` directory.
 
-```text
-https://webrpg.org/<repository-name>/
+## Using components
+
+To use the components in your app, import them as follows:
+
+```tsx
+import { Button } from "@/components/ui/button"
 ```
-
-Entries marked `invalid_structure`, `deleted_invalid_structure`, or `duplicate_name` in `list.json` are hidden from the catalog.
