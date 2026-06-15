@@ -360,6 +360,11 @@ const GameCard = React.memo(function GameCard({
             <Badge variant="outline" className="engine-pill">
               {game.engine || "RPG Maker"}
             </Badge>
+            {game.totalSize != null ? (
+              <Badge variant="outline" className="size-pill">
+                {formatSize(game.totalSize)}
+              </Badge>
+            ) : null}
           </div>
 
           <div className="game-actions">
@@ -591,6 +596,22 @@ function getInitialLanguage(): UiLanguage {
   }
 
   return "en"
+}
+
+function formatSize(kb: number): string {
+  if (kb < 0) return ""
+
+  const bytes = kb * 1024
+  const units = ["B", "KB", "MB", "GB", "TB"]
+  let unitIndex = 0
+  let value = bytes
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024
+    unitIndex++
+  }
+
+  return `${value.toFixed(unitIndex === 0 ? 0 : 2)} ${units[unitIndex]}`
 }
 
 export default App

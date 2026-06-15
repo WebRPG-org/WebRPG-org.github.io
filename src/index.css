@@ -445,6 +445,14 @@ html[lang^="zh"] {
   line-height: 1.45;
 }
 
+.size-pill {
+  max-width: 100%;
+  background: #d8ecff !important;
+  color: #0d2430 !important;
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
 .game-actions {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
