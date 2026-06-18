@@ -87,6 +87,7 @@ const HIDDEN_STATUSES = new Set([
   "invalid_structure",
   "deleted_invalid_structure",
   "duplicate_name",
+  "hidden",
 ])
 
 type UiLanguage = keyof typeof I18N
