@@ -6,7 +6,8 @@ WebRPG organizes **games (works)**, not GitHub repositories. Each work has a loc
 
 - Astro 7 SSG renders full static HTML: three homes, Game details, tags/themes, actual playable languages, 36-games/page pagination, canonical/hreflang, OG, structured data, sitemap and robots.
 - React 19 hydrates only the search/combined filters and optional browser-language suggestion. Static game cards are rendered via existing Pixelact React UI on the server without client hydration.
-- Original Zpix font, site background, images, warm Pixelact UI and CSS are preserved.
+- Original Zpix font, site background, images, warm Pixelact UI and CSS are preserved. Directory heading, rating legend and content-rating filters are grouped in a header-style pixel card, with refined responsive game details and aligned action buttons.
+- Stable default order: numeric source `games.json` rating (editorial score out of 10) descending for scored works, then localized work name for unscored and tied works. Unscored works are not assigned synthetic ratings; no review aggregator or popularity scoring is generated. The current snapshot rates 17 of 414 works.
 - Data source: WebRPG-org/index, one exact Git Commit SHA for both games.json and list.json, loaded **at build time**, validated and joined by explicit per-Game schemaVersion adapter. Browser never downloads the full upstream JSON. Search uses smaller separate content-hashed locale JSON indexes.
 - Indexability is determined by explicit `seo.indexPolicy=noindex` and technically valid, available game instance URLs. Historical draft editorial statuses, description length/absence and adult/unrated classification do not prevent publication. Factual metadata is used when an introduction is missing; missing NSFW remains `unknown`. No popularity or invented user ratings are consumed.
 
@@ -57,6 +58,7 @@ Build report: `dist/build-manifest.json` with frontend and source commits, upstr
 - Pages after page 1: `/<locale>/page/2/`; no duplicate `/page/1/`.
 - Works: `/<locale>/game/<gameSlug>/`.
 - Tags and playable languages: `/<locale>/tags/<tag>/` and `/<locale>/languages/<lang>/`. Category pagination uses an additional `page/<N>/` segment.
+- Optional content rating filter: `/<locale>/nsfw/safe/`, `/<locale>/nsfw/adult/`, `/<locale>/nsfw/unknown/`, with static `page/<N>/` pagination. These are browseable but deliberately `noindex` and excluded from Sitemap to prevent duplicate taxonomy search results. Adult and unknown works remain present on the unfiltered homepage.
 - Existing independent GitHub Project Pages such as `https://webrpg.org/<forkName>/...` are **not moved, redirected or changed**. Original deep `pagesUrl` entries are preserved. Reserved-path collisions fail the build.
 
 CI never deploys from pull requests. The GitHub Pages workflow responds to main pushes, manual dispatch, and index-update dispatch. To cover the index repository's missing dispatch sender, it also performs a read-only scheduled Index check every six hours after this workflow reaches the default branch. Unchanged Index/front-end SHAs skip builds; changed SHAs trigger full validation, and only a changed normalized catalog, route set, or frontend commit authorizes publication. Manual dispatch supports pinned frontend_ref and index_ref for rollback. See `docs/acceptance/deployment.md` and `docs/acceptance/f11-index-update.md`. Actual scheduled GitHub runner behavior, game assets/saves and Search Console canonical behavior still require live acceptance.
