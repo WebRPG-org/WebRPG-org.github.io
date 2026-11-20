@@ -1,12 +1,15 @@
 {
-  "files": [],
-  "references": [
-    { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
-  ],
+  "extends": "astro/tsconfigs/strict",
   "compilerOptions": {
-    "paths": {
-      "@/*": ["./src/*"]
-    }
-  }
+    "baseUrl": ".",
+    "paths": { "@/*": ["src/*"] },
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "resolveJsonModule": true,
+    "allowJs": true,
+    "checkJs": false,
+    "types": ["node"]
+  },
+  "include": [".astro/types.d.ts", "src/**/*"],
+  "exclude": ["dist", ".cache", "node_modules", "src/App.tsx", "src/main.tsx"]
 }

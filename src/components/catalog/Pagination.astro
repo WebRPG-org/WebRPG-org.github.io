@@ -1,0 +1,18 @@
+---
+import type { Locale } from "../../i18n/ui";
+import type { Route } from "../../i18n/routes";
+import { routeUrl } from "../../i18n/routes";
+import { UI } from "../../i18n/ui";
+interface Props { locale: Locale; route: Route; page: number; total: number }
+const { locale, route, page, total } = Astro.props;
+const link = (n: number): string => {
+  if (route.kind === "home" || route.kind === "page") return routeUrl(locale, n === 1 ? {kind: "home"} : {kind: "page", page: n});
+  return routeUrl(locale, {...route, page: n});
+};
+const indexes = [...new Set([1, page - 1, page, page + 1, total].filter((x) => x >= 1 && x <= total))].sort((a,b) => a-b);
+---
+{total > 1 && <nav class="pager" aria-label="Pagination">
+  {page > 1 && <a href={link(page - 1)} rel="prev">{UI[locale].previous}</a>}
+  {indexes.map((n) => n === page ? <span aria-current="page">{n}</span> : <a href={link(n)}>{n}</a>)}
+  {page < total && <a href={link(page + 1)} rel="next">{UI[locale].next}</a>}
+</nav>}

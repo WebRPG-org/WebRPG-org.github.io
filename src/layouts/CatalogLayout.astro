@@ -1,0 +1,73 @@
+---
+import BaseLayout from "./BaseLayout.astro";
+import { GameCard } from "../components/game/GameCard";
+import CatalogPagination from "../components/catalog/Pagination.astro";
+import SearchDialog from "../components/interactive/SearchDialog";
+import { UI, taxonomyLabel, langLabel } from "../i18n/ui";
+import { catalog, sortedGames, pageSlice, tags, languages, pageCount, type GameView } from "../data/catalog";
+import { routeUrl, type Route } from "../i18n/routes";
+import { collectionSchema, absolute } from "../seo/schema";
+import type { Locale } from "../i18n/ui";
+interface Props {
+  locale: Locale; games?: GameView[]; route?: Route; page?: number;
+  title?: string; description?: string; root?: boolean; indexable?: boolean;
+}
+const { locale, games = catalog.games, route = {kind:"home"}, page = 1, root = false } = Astro.props;
+const copy = UI[locale];
+const title = Astro.props.title || copy.catalog;
+const description = Astro.props.description || copy.curated;
+const ordered = sortedGames(games, locale);
+const visible = pageSlice(ordered, page);
+const totalPages = pageCount(games);
+const indexable = Astro.props.indexable ?? (games.length > 0 && (route.kind !== "tags" || games.length >= 2));
+const canonical = absolute(routeUrl(locale, route));
+const crumb: {title:string; href:string}[] = [{title: copy.all, href: "/" + locale + "/"}];
+if (route.kind !== "home" && route.kind !== "page") crumb.push({title, href: routeUrl(locale, {...route, page: 1})});
+const jsonLd = collectionSchema(title, description, canonical, locale, visible, crumb);
+const featuredTags = ["rpg", "visual-novel", "horror", "adventure", "fantasy", "puzzle", "drama"].filter((tag) => tags.includes(tag));
+const moreTags = tags.filter((tag) => !featuredTags.includes(tag));
+const featuredLanguages = ["en", "ja", "zh-Hans", "pt", "ko"].filter((lang) => languages.includes(lang));
+const moreLanguages = languages.filter((lang) => !featuredLanguages.includes(lang));
+---
+<BaseLayout locale={locale} route={route} title={title} description={description} indexable={indexable} jsonLd={jsonLd} root={root}>
+  <section class="command-band" aria-label={copy.search}>
+    <SearchDialog client:idle locale={locale} indexUrl={catalog.searchFiles[locale]}
+      availableLanguages={languages} availableTags={tags} />
+  </section>
+  <main class="catalog-shell">
+    <h1 class="catalog-heading">{title}</h1>
+    <p class="catalog-description">{description}</p>
+    {route.kind !== "home" && <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href={"/" + locale + "/"}>{copy.all}</a><span aria-hidden="true">/</span><span>{title}</span>
+    </nav>}
+    <details class="catalog-directory" open={route.kind === "tags" || route.kind === "languages"}>
+      <summary>{copy.browseCategories}</summary>
+      <div class="catalog-directory-body">
+    <nav class="category-nav" aria-label={copy.genres}>
+      <a href={"/" + locale + "/"} aria-current={route.kind === "home" ? "page" : undefined}>{copy.all}</a>
+      {featuredTags.map((tag) => <a href={"/" + locale + "/tags/" + tag + "/"} aria-current={route.kind === "tags" && route.slug === tag ? "page" : undefined}>{taxonomyLabel(tag, locale)}</a>)}
+      {moreTags.length > 0 && <details class="category-more" open={route.kind === "tags" && !!route.slug && moreTags.includes(route.slug)}>
+        <summary>{copy.moreGenres} ({moreTags.length})</summary>
+        <div class="category-more-links">
+          {moreTags.map((tag) => <a href={"/" + locale + "/tags/" + tag + "/"} aria-current={route.kind === "tags" && route.slug === tag ? "page" : undefined}>{taxonomyLabel(tag, locale)}</a>)}
+        </div>
+      </details>}
+    </nav>
+    <nav class="category-nav" aria-label={copy.languages}>
+      {featuredLanguages.map((language) => <a href={"/" + locale + "/languages/" + language + "/"} aria-current={route.kind === "languages" && route.slug === language ? "page" : undefined}>{langLabel(language, locale)}</a>)}
+      {moreLanguages.length > 0 && <details class="category-more" open={route.kind === "languages" && !!route.slug && moreLanguages.includes(route.slug)}>
+        <summary>{copy.moreLanguages} ({moreLanguages.length})</summary>
+        <div class="category-more-links">
+          {moreLanguages.map((language) => <a href={"/" + locale + "/languages/" + language + "/"} aria-current={route.kind === "languages" && route.slug === language ? "page" : undefined}>{langLabel(language, locale)}</a>)}
+        </div>
+      </details>}
+    </nav>
+      </div>
+    </details>
+    <div class="catalog-heading-row"><span>{games.length} {copy.gameCount}</span><span>{copy.page} {page} {copy.of} {totalPages}</span></div>
+    <div class="catalog-grid">
+      {visible.map((game) => <GameCard game={game} locale={locale} />)}
+    </div>
+    <CatalogPagination locale={locale} route={route} page={page} total={totalPages} />
+  </main>
+</BaseLayout>

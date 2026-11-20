@@ -1,0 +1,25 @@
+---
+import BaseLayout from "../../../../layouts/BaseLayout.astro";
+import GameDetails from "../../../../components/game/GameDetails.astro";
+import { LOCALES, UI, type Locale } from "../../../../i18n/ui";
+import { catalog, type GameView } from "../../../../data/catalog";
+import { gameSchema, absolute } from "../../../../seo/schema";
+export function getStaticPaths() {
+  return LOCALES.flatMap((lang) => catalog.games.map((game) => ({params: {lang, slug: game.slug}, props: {game}})));
+}
+interface Props {game: GameView}
+const {game} = Astro.props;
+const locale = Astro.params.lang as Locale;
+const route = {kind:"game" as const, slug:game.slug};
+const title = game.titleByLocale[locale] + " — " + UI[locale].details;
+const description = game.introductions[locale].summary || game.originalTitle;
+const canonical = absolute("/" + locale + "/game/" + game.slug + "/");
+const breadcrumbs = [
+  {title: UI[locale].all, href: "/" + locale + "/"},
+  {title: game.titleByLocale[locale], href: "/" + locale + "/game/" + game.slug + "/"}
+];
+---
+<BaseLayout locale={locale} route={route} title={title} description={description} indexable={game.indexable[locale]}
+  ogImage={game.coverUrl} jsonLd={gameSchema(game,locale,canonical,breadcrumbs)}>
+  <GameDetails game={game} locale={locale} />
+</BaseLayout>

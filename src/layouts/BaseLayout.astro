@@ -1,0 +1,58 @@
+---
+import "../index.css";
+import "../styles/ssg.css";
+import type { Locale } from "../i18n/ui";
+import type { Route } from "../i18n/routes";
+import { routeUrl, routeExists, safeRouteUrl, urlAlternates } from "../i18n/routes";
+import { absolute } from "../seo/schema";
+import Header from "../components/layout/Header.astro";
+import Footer from "../components/layout/Footer.astro";
+import LanguageSuggestion from "../components/interactive/LanguageSuggestion";
+interface Props {
+  locale: Locale; route: Route; title: string; description: string; indexable: boolean;
+  ogImage?: string | null; jsonLd?: unknown; root?: boolean;
+}
+const { locale, route, title, description, indexable, ogImage, jsonLd, root = false } = Astro.props;
+const canonical = absolute(routeUrl(locale, route));
+const alternates = urlAlternates(route, indexable);
+const fullTitle = title.includes("WebRPG") ? title : title + " | WebRPG";
+const json = JSON.stringify(jsonLd ?? { "@context": "https://schema.org", "@type": "WebPage", name: fullTitle, url: canonical }).replace(/</g, "\\u003c");
+const currentPath = root ? "/" : routeUrl(locale, route);
+---
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#2c1c12" />
+    <meta name="description" content={description} />
+    <meta name="robots" content={indexable ? "index,follow" : "noindex,follow"} />
+    <title>{fullTitle}</title>
+    <link rel="canonical" href={canonical} />
+    {Object.entries(alternates).map(([lang, href]) => <link rel="alternate" hreflang={lang} href={href} />)}
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:locale" content={locale} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+    <meta name="twitter:card" content={ogImage ? "summary_large_image" : "summary"} />
+    <link rel="icon" type="image/png" href="/assets/logo.png" />
+    <link rel="apple-touch-icon" href="/assets/logo.png" />
+    <link rel="preload" href="/fonts/zpix.ttf" as="font" type="font/ttf" crossorigin />
+    <script type="application/ld+json" set:html={json} />
+    <script defer src="https://insight.ravelloh.com/script.js?siteId=5ace6623-f51b-4571-8f60-e0473ea3317b"></script>
+  </head>
+  <body>
+    <div class="site-shell">
+      <div class="site-scrim">
+        <Header locale={locale} route={route} />
+        <slot />
+        <Footer locale={locale} />
+      </div>
+    </div>
+    <LanguageSuggestion client:idle locale={locale} path={currentPath}
+      targets={{ en: safeRouteUrl("en", route), "zh-Hans": safeRouteUrl("zh-Hans", route), ja: safeRouteUrl("ja", route) }}
+      available={{ en: routeExists("en", route), "zh-Hans": routeExists("zh-Hans", route), ja: routeExists("ja", route) }} />
+  </body>
+</html>

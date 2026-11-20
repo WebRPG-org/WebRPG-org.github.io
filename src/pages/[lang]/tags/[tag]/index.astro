@@ -1,0 +1,14 @@
+---
+import CatalogLayout from "../../../../layouts/CatalogLayout.astro";
+import { LOCALES, UI, taxonomyLabel, tagDescription, type Locale } from "../../../../i18n/ui";
+import { tags, filterCatalog } from "../../../../data/catalog";
+export function getStaticPaths() {
+  return LOCALES.flatMap((lang) => tags.map((tag) => ({ params: {lang, tag} })));
+}
+const locale = Astro.params.lang as Locale;
+const tag = String(Astro.params.tag);
+const games = filterCatalog("tags", tag);
+const title = taxonomyLabel(tag, locale) + " — " + UI[locale].genres;
+const description = tagDescription(tag,locale,games.length) || title + " · " + games.length + " " + UI[locale].gameCount + " · WebRPG";
+---
+<CatalogLayout locale={locale} games={games} route={{kind:"tags",slug:tag,page:1}} title={title} description={description} indexable={games.length >= 2 && !!tagDescription(tag,locale,games.length)} />

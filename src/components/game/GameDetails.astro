@@ -1,0 +1,72 @@
+---
+import type { GameView } from "../../data/catalog";
+import type { Locale } from "../../i18n/ui";
+import { UI, taxonomyLabel, langLabel } from "../../i18n/ui";
+import { gameBySlug } from "../../data/catalog";
+interface Props { game: GameView; locale: Locale }
+const { game, locale } = Astro.props;
+const copy = UI[locale];
+const intro = game.introductions[locale];
+const approved = ["reviewed", "published"].includes(game.editorialStatus) && ["reviewed", "published"].includes(intro.editorialStatus);
+const cleanOverview = approved && intro.overview && !/待审核|示例内容|placeholder|lorem ipsum|占位/i.test(intro.overview);
+const links = [...game.genres, ...game.themes];
+const related = game.relatedSlugs.map((slug) => gameBySlug.get(slug)).filter((g): g is GameView => !!g);
+---
+<main class="catalog-shell detail-shell">
+  <nav class="breadcrumbs" aria-label="Breadcrumb"><a href={"/" + locale + "/"}>{copy.all}</a><span aria-hidden="true">/</span><span aria-current="page">{game.titleByLocale[locale]}</span></nav>
+  <article class="detail-card">
+    <div class="detail-hero">
+      <div class="detail-cover cover-frame">
+        <img class="cover-base" src="/assets/empty-book.jpg" width="640" height="400" alt="" />
+        {game.coverUrl && <img class="cover-image is-loaded" src={game.coverUrl} width="640" height="400" alt={game.titleByLocale[locale]} />}
+      </div>
+      <div class="detail-intro">
+        <h1>{game.titleByLocale[locale]}</h1>
+        {game.titleByLocale[locale] !== game.originalTitle && <p class="detail-original">{copy.original}: <span lang="und">{game.originalTitle}</span></p>}
+        {game.editorialStatus === "draft" && <p class="draft-note">{copy.draft}</p>}
+        {intro.summary && <p class="detail-summary">{intro.summary}</p>}
+        <div class="detail-tags">
+          {links.map((tag) => <a href={"/" + locale + "/tags/" + tag + "/"} class="taxonomy-pill">{taxonomyLabel(tag, locale)}</a>)}
+          {game.nsfw !== false && <span class="taxonomy-pill caution">{game.nsfw ? copy.adult : copy.unknown}</span>}
+        </div>
+      </div>
+    </div>
+    {approved && (cleanOverview || intro.story || intro.highlights.length) ? <section class="detail-section">
+      <h2>{copy.narrative}</h2>
+      {cleanOverview && <p>{intro.overview}</p>}
+      {intro.story && <p>{intro.story}</p>}
+      {intro.highlights.length > 0 && <ul>{intro.highlights.map((item) => <li>{item}</li>)}</ul>}
+    </section> : null}
+    <div class="detail-facts">
+      {game.developers.length > 0 && <p><strong>{copy.developers}:</strong> {game.developers.join(", ")}</p>}
+      {game.publishers.length > 0 && <p><strong>{copy.publishers}:</strong> {game.publishers.join(", ")}</p>}
+      {game.releaseDate && <p><strong>{copy.release}:</strong> <time datetime={game.releaseDate}>{game.releaseDate}</time></p>}
+    </div>
+    <section class="detail-section" aria-label={copy.versions}>
+      <h2>{copy.versions} ({game.instances.length})</h2>
+      <div class="instance-list">
+        {game.instances.map((item) => <div class="instance-card">
+          <div class="instance-main">
+            <h3>{item.title}</h3>
+            <p>{item.languages.map((lang) => langLabel(lang, locale)).join(" · ")}</p>
+            <div class="detail-tags">
+              <span class="taxonomy-pill">{item.type === "external" ? "External" : item.engine || "RPG Maker"}</span>
+              <span class="taxonomy-pill">{item.nsfw === true ? copy.adult : item.nsfw === false ? copy.safe : copy.unknown}</span>
+            </div>
+          </div>
+          <div class="instance-actions">
+            {item.available === true && !item.needsReview ? <a class="pixel__button pixel-default__button pixel-font" href={item.playUrl} target="_blank" rel="noopener noreferrer">{copy.play}</a>
+              : <span class="draft-note">{copy.draft}</span>}
+            {item.sourceRepoUrl && <a href={item.sourceRepoUrl} class="instance-source" target="_blank" rel="noopener noreferrer">{copy.source}</a>}
+          </div>
+        </div>)}
+      </div>
+    </section>
+    {game.externalLinks.length > 0 && <div class="detail-section"><h2>{copy.source}</h2>
+      <ul>{game.externalLinks.map((link) => <li><a href={link.url} rel="noopener noreferrer" target="_blank">{link.label || link.type || link.url}</a></li>)}</ul>
+    </div>}
+    {related.length > 0 && <section class="detail-section"><h2>{copy.related}</h2>
+      <ul>{related.map((g) => <li><a href={"/" + locale + "/game/" + g.slug + "/"}>{g.titleByLocale[locale]}</a></li>)}</ul>
+    </section>}
+  </article>
+</main>
