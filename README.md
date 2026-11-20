@@ -7,7 +7,7 @@ WebRPG organizes **games (works)**, not GitHub repositories. Each work has a loc
 - Astro 7 SSG renders full static HTML: three homes, Game details, tags/themes, actual playable languages, 36-games/page pagination, canonical/hreflang, OG, structured data, sitemap and robots.
 - React 19 hydrates only the search/combined filters and optional browser-language suggestion. Static game cards are rendered via existing Pixelact React UI on the server without client hydration.
 - Original Zpix font, site background, images, warm Pixelact UI and CSS are preserved. Directory heading, rating legend and content-rating filters are grouped in a header-style pixel card, with refined responsive game details and aligned action buttons.
-- Stable default order: the existing numeric `games.json` popularity indicator descending (1–9 in the pinned snapshot), with localized work names and slugs as tie breakers. All 414 works have a source popularity value; it is an editorial popularity estimate, not live traffic or user reviews. The separate source `rating` remains an optional display-only editorial score for 17 of 414 works. Never fabricate aggregate user ratings or feed popularity into search relevance or structured rating data.
+- Stable default order: the existing numeric `games.json` popularity indicator descending (1–9 in the pinned snapshot), with localized work names and slugs as tie breakers. In the latest fetched snapshot, all 549 works have a source popularity value; it is an editorial popularity estimate, not live traffic or user reviews. The separate source `rating` remains an optional display-only editorial score for 78 of 549 works. Never fabricate aggregate user ratings or feed popularity into search relevance or structured rating data.
 - Data source: WebRPG-org/index, one exact Git Commit SHA for both games.json and list.json, loaded **at build time**, validated and joined by explicit per-Game schemaVersion adapter. Browser never downloads the full upstream JSON. Search uses smaller separate content-hashed locale JSON indexes.
 - Indexability is determined by explicit `seo.indexPolicy=noindex` and technically valid, available game instance URLs. Historical draft editorial statuses, description length/absence and adult/unrated classification do not prevent publication. Factual metadata is used when an introduction is missing; missing NSFW remains `unknown`. Popularity affects directory ordering only, not search weighting or invented Schema.org user ratings.
 
@@ -37,7 +37,7 @@ Node 24 is recommended.
 
 Each build resolves WebRPG-org/index main to a **40-character immutable SHA** and downloads both files from that exact revision. To reproduce a release, set INDEX_REF to that SHA before running npm run build. For example:
 
-    INDEX_REF=bef40743be736b339f2f9bf3f0c9772f90e94de8 npm run build
+    INDEX_REF=ff6486bd3452ff7a8e07b4d38318e4dea8af6813 npm run build
 
 In PowerShell: `$env:INDEX_REF = '<sha>'`, then `npm run build`. With `INDEX_OFFLINE=1`, the snapshot must already be cached with valid SHA256 provenance.
 
