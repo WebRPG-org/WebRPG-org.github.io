@@ -45,7 +45,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .game-card .action-button { width: 100%; }
 .game-card .cover-image { transition: opacity 150ms linear; background: #e9cc86 url("/assets/empty-book.jpg") center / cover; }
 .pager { display: flex; flex-wrap: wrap; gap: 9px; justify-content: center; align-items: center; margin: 32px 0; }
-.pager a, .pager span { padding: 10px 14px; color: #24160d; background: #fff0c8; border: 2px solid #24160d; min-width: 40px; text-align: center; }
+/* Pager colors and borders are scoped to .pager-number/.pager-control below; never style nested arrow spans. */
 .pager [aria-current="page"] { color: #fff4d8; background: #2f7b63; }
 .pager a:hover { background: #ecd49e; }
 .search-interface { position: relative; }
@@ -527,7 +527,16 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 /* Compact, consistent Pixelact pagination with more visible numbered pages. */
 .pager { flex-direction: column; gap: 12px; margin: 34px 0 8px; }
 .pager-overview { color: #fff0c8 !important; background: none !important; border: 0 !important; padding: 0 !important; min-width: 0 !important; font-size: .79rem; }
-.pager-controls, .pager-pages { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 7px; }
+.pager-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+.pager-pages { grid-column: 2; grid-row: 1; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 7px; }
+.pager-control[rel="prev"] { grid-column: 1; grid-row: 1; justify-self: end; }
+.pager-control[rel="next"] { grid-column: 3; grid-row: 1; justify-self: start; }
 .pager a.pager-number, .pager span.pager-number, .pager a.pager-control {
   display: inline-flex;
   justify-content: center;
@@ -553,8 +562,26 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   padding: 5px 2px;
   min-width: 16px;
 }
+@media (max-width: 1020px) {
+  .pager-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .pager-pages {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow-x: auto;
+    padding: 3px 3px 9px;
+    scrollbar-width: thin;
+    scrollbar-color: #e8cf99 transparent;
+    overscroll-behavior-x: contain;
+  }
+  .pager-pages > * { flex: 0 0 auto; }
+  .pager-control[rel="prev"] { grid-column: 1; grid-row: 2; justify-self: start; width: min(100%, 130px); }
+  .pager-control[rel="next"] { grid-column: 2; grid-row: 2; justify-self: end; width: min(100%, 130px); }
+}
 @media (max-width: 760px) {
-  .pager-controls, .pager-pages { gap: 6px; }
+  .pager-pages { gap: 6px; }
   .pager a.pager-number, .pager span.pager-number, .pager a.pager-control {
     min-width: 35px;
     min-height: 38px;

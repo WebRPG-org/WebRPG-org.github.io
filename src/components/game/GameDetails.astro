@@ -74,11 +74,6 @@ const availableLanguageCodes = [...new Set(game.languages)];
             {availableLanguageCodes.map((lang) => <a href={"/" + locale + "/languages/" + lang + "/"}>{langLabel(lang, locale)}</a>)}
           </dd></>}
         </dl>
-        <div class="detail-hero-actions">
-          {primary && primary.available === true && !primary.needsReview ?
-            <a class="detail-play-link pixel__button pixel-default__button pixel-font" href={primary.playUrl} target="_blank" rel="noopener noreferrer">{copy.play} <span aria-hidden="true">↗</span></a> :
-            <span class="instance-unavailable">{copy.unavailable}</span>}
-        </div>
       </div>
     </header>
 

@@ -65,7 +65,7 @@ try {
     const detail=await page.goto(http("/ja/game/" + sampleGame.slug + "/"),{waitUntil:"domcontentloaded"});
     assert.equal(detail.status(),200);
     assert.equal(await page.locator('html').getAttribute('lang'),"ja");
-    assert(await page.locator(".detail-play-link[href]").evaluateAll((nodes, url) => nodes.some((element) => element.getAttribute("href") === url), sampleRunUrl));
+    assert(await page.locator("#versions .instance-play[href]").evaluateAll((nodes, url) => nodes.some((element) => element.getAttribute("href") === url), sampleRunUrl));
     assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'),sampleGame.indexable.ja ? "index,follow" : "noindex,follow");
     assert.equal(await page.locator('.language-switch a[data-webrpg-language="en"]').getAttribute('href'),"/en/game/" + sampleGame.slug + "/");
     await page.screenshot({path:join(images,"desktop-detail-ja.png"),fullPage:false});
@@ -228,7 +228,8 @@ try {
     assert.equal(await detail.locator(".detail-jump-link").count(),0,"Former redundant versions jump button must stay removed");
     assert.equal(await detail.locator(".detail-cover-home").getAttribute("href"),"/zh-Hans/");
     assert(await detail.locator(".detail-source-list a").count()>0);
-    assert(await detail.locator(".detail-play-link").count()>=1);
+    assert.equal(await detail.locator(".detail-hero-actions").count(),0,"No redundant Play button above the versions list");
+    assert(await detail.locator("#versions .instance-play").count()>=1,"Each playable version keeps its own Play link");
     const homeAboveCover=await detail.locator(".detail-cover-column").evaluate(el=>{const a=el.querySelector(".detail-cover-home").getBoundingClientRect(),cover=el.querySelector(".detail-cover").getBoundingClientRect();return a.bottom<cover.top;});
     assert(homeAboveCover,"Home button must be above, never overlaying cover");
     assert(await page.locator(".detail-similar .game-card").count()>0);
@@ -276,6 +277,48 @@ try {
     const sources=await page.locator(".detail-source-list a").evaluateAll(nodes=>nodes.map(el=>el.getAttribute("href")));
     const extras=await page.locator(".detail-external-list a").evaluateAll(nodes=>nodes.map(el=>el.getAttribute("href")));
     assert(extras.every(url=>!sources.includes(url)),"Source and related external links must not duplicate");
+  });
+  await check("Pager controls align with page numbers; only version cards offer Play",async()=>{
+    for(const width of [1440,390,320]){
+      await page.setViewportSize({width,height:900});
+      await page.goto(http("/zh-Hans/page/6/"),{waitUntil:"domcontentloaded"});
+      const pager=await page.locator(".pager").evaluate(el=>{
+        const prev=el.querySelector('a[rel="prev"]'), next=el.querySelector('a[rel="next"]');
+        const pageNumber=el.querySelector(".pager-number");
+        const arrows=[...el.querySelectorAll(".pager-control span")].map(s=>({
+          border:getComputedStyle(s).borderTopWidth,
+          padding:getComputedStyle(s).padding,
+          bg:getComputedStyle(s).backgroundColor,
+        }));
+        return {
+          prev:prev?.getAttribute("href"), next:next?.getAttribute("href"),
+          controls:[prev,next].map(a=>Math.round(a.getBoundingClientRect().height)),
+          controlTops:[prev,next].map(a=>Math.round(a.getBoundingClientRect().top)),
+          pagesBottom:Math.round(el.querySelector(".pager-pages").getBoundingClientRect().bottom),
+          pageHeight:Math.round(pageNumber.getBoundingClientRect().height),
+          arrows, pageCount:el.querySelectorAll(".pager-number").length,
+          scrollable:el.querySelector(".pager-pages").scrollWidth>el.querySelector(".pager-pages").clientWidth,
+          overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
+        };
+      });
+      assert.equal(pager.prev,"/zh-Hans/page/5/");
+      assert.equal(pager.next,"/zh-Hans/page/7/");
+      assert(pager.controls.every(height=>height===pager.pageHeight),"Controls must match page-number height: "+JSON.stringify(pager));
+      assert(pager.arrows.every(s=>s.border==="0px" && s.padding==="0px" && s.bg.includes("0, 0, 0, 0")),"Arrows must not render nested Pixelact buttons");
+      assert(pager.pageCount>=9,"Keep the larger page-number window");
+      assert(pager.overflow<=1,"Pagination must not overflow");
+      assert(Math.abs(pager.controlTops[0]-pager.controlTops[1])<=1,"Previous/next must share one row");
+      if(width<=390){
+        assert(pager.scrollable,"Mobile page numbers should scroll horizontally instead of wrapping into extra rows");
+        assert(pager.controlTops[0]>=pager.pagesBottom,"Mobile arrows should sit below the page-number strip");
+      }
+      const multi=gameCatalog.games.find(g=>g.instances.length>1&&g.instances.some(i=>i.available===true&&!i.needsReview));
+      assert(multi);
+      await page.goto(http("/zh-Hans/game/"+multi.slug+"/"),{waitUntil:"domcontentloaded"});
+      assert.equal(await page.locator(".detail-hero-actions,.detail-play-link").count(),0,"No redundant hero Play button");
+      assert.equal(await page.locator("#versions .instance-card").count(),multi.instances.length,"Keep every playable-version card");
+      assert(await page.locator("#versions .instance-play").count()>0,"Each available version must retain Play");
+    }
   });
   await check("Mobile 320/390px pages avoid horizontal overflow and keep readable nav",async()=>{
     for(const width of [320,390]){
