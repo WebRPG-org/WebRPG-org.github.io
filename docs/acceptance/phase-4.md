@@ -2,7 +2,7 @@
 
 ## CI / deployment plan (configured, NOT triggered)
 - CI workflow on pull requests and non-main push: Node 24 npm ci, schema build + ESLint + Astro check + unit fixtures + SSG + dist SEO validator, then real browser smoke. The browser binary path uses setup-chrome output rather than assuming /usr/bin/chromium. Produces build-manifest audit artifact.
-- Existing GitHub Pages deployment kept: only main pushes, workflow_dispatch and repository_dispatch index-updated can publish. Node 24 npm ci, same build gates plus browser smoke must pass before upload-pages-artifact and deploy-pages.
+- Existing GitHub Pages deployment kept: main pushes, workflow_dispatch, repository_dispatch index-updated and a six-hour read-only schedule fallback. Scheduled checks pin Index HEAD to an immutable SHA, skip unchanged revisions, and build/test but do not publish when normalized catalog, routes and frontend commit match the deployed manifest. Node 24 npm ci, same build gates plus browser smoke must pass before upload-pages-artifact and deploy-pages.
 - Manual dispatch accepts optional pinned frontend_ref and index_ref for rollback. The deployment path remains dist/CNAME=webrpg.org; there is no Cloudflare Pages cutover.
 - Build manifest includes frontend Commit SHA, data Commit SHA, raw games/list SHA256, normalized catalog hash, schema versions, route hash, totals, sitemap, noindex counts and warnings.
 - Path protection checks existing forks against en/zh-Hans/ja/assets/data/game/page/tags/languages/_astro and other reserved segments case-insensitively. Dist never creates any child-game runtime directories.
