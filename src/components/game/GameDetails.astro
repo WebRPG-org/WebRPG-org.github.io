@@ -5,6 +5,7 @@ import { UI, taxonomyLabel, langLabel } from "../../i18n/ui";
 import { gameBySlug, similarGames } from "../../data/catalog";
 import { gameDescription, publishedCopy, relationLabel } from "../../data/game-description";
 import { GameCard } from "./GameCard";
+import { DETAIL_COVER_SIZES, DETAIL_COVER_WIDTHS, optimizedCoverUrl, coverSrcSet } from "../../lib/cover-image";
 interface Props { game: GameView; locale: Locale }
 const { game, locale } = Astro.props;
 const copy = UI[locale];
@@ -41,7 +42,7 @@ const availableLanguageCodes = [...new Set(game.languages)];
         <a class="detail-cover-home" href={"/" + locale + "/"}><span aria-hidden="true">←</span> {copy.returnHome}</a>
         <div class="detail-cover cover-frame">
           <img class="cover-base" src="/assets/empty-book.jpg" width="640" height="400" alt="" />
-          {game.coverUrl && <img class="cover-image is-loaded" src={game.coverUrl} width="640" height="400" alt={game.titleByLocale[locale]} decoding="async" />}
+          {game.coverUrl && <img class="cover-image is-loaded" src={optimizedCoverUrl(game.coverUrl, 750)} srcset={coverSrcSet(game.coverUrl, DETAIL_COVER_WIDTHS)} sizes={DETAIL_COVER_SIZES} width="640" height="400" alt={game.titleByLocale[locale]} decoding="async" fetchpriority="high" />}
         </div>
         <div class="detail-cover-caption">
           {game.editorialRating !== null ? <span class="detail-score" title={copy.ratingLegend}>★ {game.editorialRating}<small>/10</small> · {copy.editorialScore}</span> :

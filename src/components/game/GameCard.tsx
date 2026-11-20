@@ -4,6 +4,7 @@ import { Card, CardContent, CardTitle } from "@/components/ui/pixelact-ui/card";
 import type { GameView } from "@/data/catalog";
 import { taxonomyLabel, langLabel, UI, type Locale } from "@/i18n/ui";
 import { gameDescription } from "@/data/game-description";
+import { CARD_COVER_SIZES, CARD_COVER_WIDTHS, optimizedCoverUrl, coverSrcSet } from "@/lib/cover-image";
 
 export function GameCard({ game, locale }: { game: GameView; locale: Locale }) {
   const title = game.titleByLocale[locale];
@@ -14,7 +15,7 @@ export function GameCard({ game, locale }: { game: GameView; locale: Locale }) {
     <CardContent className="game-content">
       <a href={href} className="cover-frame" aria-label={title}>
         <img className="cover-base" src="/assets/empty-book.jpg" width={480} height={300} alt="" aria-hidden="true" />
-        {game.coverUrl && <img className="cover-image is-loaded" src={game.coverUrl} alt={title} width={480} height={300} loading="lazy" decoding="async" referrerPolicy="no-referrer" />}
+        {game.coverUrl && <img className="cover-image is-loaded" src={optimizedCoverUrl(game.coverUrl, 384)} srcSet={coverSrcSet(game.coverUrl, CARD_COVER_WIDTHS)} sizes={CARD_COVER_SIZES} alt={title} width={480} height={300} loading="lazy" decoding="async" referrerPolicy="no-referrer" />}
       </a>
       <div className="game-body">
         <div className="game-heading">

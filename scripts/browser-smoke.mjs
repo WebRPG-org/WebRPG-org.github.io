@@ -81,6 +81,41 @@ try {
     const invalidSlug=await page.goto(http("/en/game/definitely-not-a-real-game/"),{waitUntil:"domcontentloaded"});
     assert.equal(invalidSlug.status(),404);
   });
+  await check("Responsive covers choose image-proxy widths from layout and device DPR, preserving SEO originals",async()=>{
+    const choices=[];
+    for (const [viewportWidth,dpr] of [[1440,1],[1440,2],[390,3]]) {
+      const context=await browser.newContext({viewport:{width:viewportWidth,height:900},deviceScaleFactor:dpr});
+      try {
+        const imgPage=await context.newPage();
+        const response=await imgPage.goto(http("/en/"),{waitUntil:"domcontentloaded",timeout:35000});
+        assert.equal(response.status(),200);
+        const image=imgPage.locator(".game-card .cover-image").first();
+        await image.scrollIntoViewIfNeeded();
+        await imgPage.waitForFunction(()=>document.querySelector(".game-card .cover-image")?.currentSrc?.includes("i.ravelloh.com/webrpg.org/"),{timeout:25000});
+        const info=await image.evaluate((el)=>({
+          src:el.getAttribute("src"),srcSet:el.getAttribute("srcset"),sizes:el.getAttribute("sizes"),
+          currentSrc:el.currentSrc,displayWidth:el.getBoundingClientRect().width,
+        }));
+        assert(info.src.includes("?w=384"),JSON.stringify(info));
+        assert(info.srcSet.split(", ").length>=4,"Image should provide multiple width candidates");
+        assert(info.sizes.includes("vw"),"Sizes must describe actual viewport/layout breakpoints");
+        const selected=Number(new URL(info.currentSrc).searchParams.get("w"));
+        assert([384,640,750,1080,1200].includes(selected),JSON.stringify(info));
+        assert(selected >= Math.round(info.displayWidth*dpr*.7),"Selected resource should cover DPR: "+JSON.stringify(info));
+        choices.push({viewportWidth,dpr,selected});
+      } finally {await context.close();}
+    }
+    assert(choices[1].selected>choices[0].selected,JSON.stringify(choices));
+    const example=gameCatalog.games.find(g=>g.coverUrl?.startsWith("https://webrpg.org/"));
+    assert(example);
+    await page.goto(http("/en/game/"+example.slug+"/"),{waitUntil:"domcontentloaded"});
+    const cover=page.locator(".detail-cover .cover-image");
+    assert((await cover.getAttribute("src")).includes("i.ravelloh.com/webrpg.org/"));
+    assert((await cover.getAttribute("srcset")).includes("1920w"),"Detail artwork should offer a sharper large-screen source");
+    assert((await cover.getAttribute("sizes")).includes("500px"));
+    assert.equal(await page.locator('meta[property="og:image"]').getAttribute("content"),example.coverUrl,
+      "Canonical social metadata should retain the original immutable source");
+  });
   await check("Desktop theme loads exact pixel font and warm card backgrounds",async()=>{
     await page.goto(http("/en/"),{waitUntil:"domcontentloaded"});
     const s=await page.locator(".game-card").first().evaluate((element)=>{
