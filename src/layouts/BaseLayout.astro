@@ -10,13 +10,13 @@ import Footer from "../components/layout/Footer.astro";
 import LanguageSuggestion from "../components/interactive/LanguageSuggestion";
 interface Props {
   locale: Locale; route: Route; title: string; description: string; indexable: boolean;
-  ogImage?: string | null; jsonLd?: unknown; root?: boolean;
+  ogImage?: string | null; jsonLd?: unknown; root?: boolean; notFound?: boolean;
 }
-const { locale, route, title, description, indexable, ogImage, jsonLd, root = false } = Astro.props;
+const { locale, route, title, description, indexable, ogImage, jsonLd, root = false, notFound = false } = Astro.props;
 const canonical = absolute(routeUrl(locale, route));
 const alternates = urlAlternates(route, indexable);
 const fullTitle = title.includes("WebRPG") ? title : title + " | WebRPG";
-const json = JSON.stringify(jsonLd ?? { "@context": "https://schema.org", "@type": "WebPage", name: fullTitle, url: canonical }).replace(/</g, "\\u003c");
+const json = JSON.stringify(jsonLd ?? { "@context": "https://schema.org", "@type": "WebPage", name: fullTitle, ...(notFound ? {} : {url:canonical}) }).replace(/</g, "\\u003c");
 const currentPath = root ? "/" : routeUrl(locale, route);
 ---
 <!doctype html>
@@ -28,12 +28,12 @@ const currentPath = root ? "/" : routeUrl(locale, route);
     <meta name="description" content={description} />
     <meta name="robots" content={indexable ? "index,follow" : "noindex,follow"} />
     <title>{fullTitle}</title>
-    <link rel="canonical" href={canonical} />
+    {!notFound && <link rel="canonical" href={canonical} />}
     {Object.entries(alternates).map(([lang, href]) => <link rel="alternate" hreflang={lang} href={href} />)}
     <meta property="og:type" content="website" />
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
-    <meta property="og:url" content={canonical} />
+    {!notFound && <meta property="og:url" content={canonical} />}
     <meta property="og:locale" content={locale} />
     {ogImage && <meta property="og:image" content={ogImage} />}
     <meta name="twitter:card" content={ogImage ? "summary_large_image" : "summary"} />
@@ -51,8 +51,8 @@ const currentPath = root ? "/" : routeUrl(locale, route);
         <Footer locale={locale} />
       </div>
     </div>
-    <LanguageSuggestion client:idle locale={locale} path={currentPath}
+    {!notFound && <LanguageSuggestion client:idle locale={locale} path={currentPath}
       targets={{ en: safeRouteUrl("en", route), "zh-Hans": safeRouteUrl("zh-Hans", route), ja: safeRouteUrl("ja", route) }}
-      available={{ en: routeExists("en", route), "zh-Hans": routeExists("zh-Hans", route), ja: routeExists("ja", route) }} />
+      available={{ en: routeExists("en", route), "zh-Hans": routeExists("zh-Hans", route), ja: routeExists("ja", route) }} />}
   </body>
 </html>

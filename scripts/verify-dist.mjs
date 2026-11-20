@@ -54,6 +54,7 @@ for (const [path, page] of html) {
   assert(/<h1\b/i.test(page), path + ": missing static H1");
   assert(/<html\b[^>]*\blang="(en|ja|zh-Hans)"/.test(page), path + ": bad html language");
   if (!is404) assert(canonical === expected, path + ": incorrect canonical " + canonical);
+  if (is404) assert(!canonical, "404 page must not canonicalize to a live homepage");
   assert(!!robot, path + ": missing robots meta");
   if (!is404) assert(/<main\b/i.test(page), path + ": missing static main");
   if (!is404 && path !== "/") assert(!page.includes("raw.githubusercontent.com/WebRPG-org/index/main/list.json"), path + ": runtime raw source");
