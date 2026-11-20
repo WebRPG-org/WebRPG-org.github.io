@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/pixelact-ui/button";
 import { Card, CardContent, CardTitle } from "@/components/ui/pixelact-ui/card";
 import type { GameView } from "@/data/catalog";
 import { taxonomyLabel, langLabel, UI, type Locale } from "@/i18n/ui";
+import { gameDescription } from "@/data/game-description";
 
 export function GameCard({ game, locale }: { game: GameView; locale: Locale }) {
   const title = game.titleByLocale[locale];
@@ -13,12 +14,12 @@ export function GameCard({ game, locale }: { game: GameView; locale: Locale }) {
     <CardContent className="game-content">
       <a href={href} className="cover-frame" aria-label={title}>
         <img className="cover-base" src="/assets/empty-book.jpg" width={480} height={300} alt="" aria-hidden="true" />
-        {game.nsfw === false && game.coverUrl && <img className="cover-image is-loaded" src={game.coverUrl} alt={title} width={480} height={300} loading="lazy" decoding="async" referrerPolicy="no-referrer" />}
+        {game.coverUrl && <img className="cover-image is-loaded" src={game.coverUrl} alt={title} width={480} height={300} loading="lazy" decoding="async" referrerPolicy="no-referrer" />}
       </a>
       <div className="game-body">
         <div className="game-heading">
           <CardTitle className="game-title"><a href={href}>{title}</a></CardTitle>
-          <p className="game-repo">{game.introductions[locale].summary || game.originalTitle}</p>
+          <p className="game-repo">{gameDescription(game, locale)}</p>
         </div>
         <div className="game-meta">
           {[...new Set([...game.genres, ...game.themes])].slice(0, 2).map((tag) => <a key={tag} href={"/" + locale + "/tags/" + tag + "/"}>
@@ -26,7 +27,7 @@ export function GameCard({ game, locale }: { game: GameView; locale: Locale }) {
           </a>)}
           {game.languages.slice(0, 2).map((lang) => <a key={lang} href={"/" + locale + "/languages/" + lang + "/"}><Badge variant="outline" className="size-pill">{langLabel(lang, locale)}</Badge></a>)}
           {game.languages.length > 2 && <Badge variant="outline" className="size-pill">+{game.languages.length - 2}</Badge>}
-          {game.nsfw !== false && <Badge variant="outline" className="size-pill">{game.nsfw ? copy.adult : copy.unknown}</Badge>}
+          {game.nsfw !== false && <Badge variant="outline" className="size-pill">{game.nsfw === true ? copy.adult : copy.unknown}</Badge>}
           {game.instances.length > 1 && <Badge variant="outline" className="size-pill">{game.instances.length} {copy.editions}</Badge>}
         </div>
         <div className="game-actions">

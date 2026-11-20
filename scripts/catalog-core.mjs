@@ -4,6 +4,7 @@ export const LOCALES = ["en", "zh-Hans", "ja"];
 export const PAGE_SIZE = 36;
 export const RESERVED = ["en", "zh-hans", "ja", "page", "game", "tags", "languages", "assets", "data", "search", "_astro", "fonts"];
 const TITLE_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+// Editorial placeholder text must not be published as factual copy; it is not an indexability gate.
 const BAD_COPY = /待审核|示例内容|占位|placeholder|lorem ipsum|to be reviewed|sample text|未审核|仮文|ダミー/i;
 const safeString = (s) => typeof s === "string" ? s.trim() : "";
 const strings = (a) => Array.isArray(a) ? [...new Set(a.filter((x) => typeof x === "string" && x.trim()).map((x) => x.trim()))] : [];
@@ -14,22 +15,33 @@ const validUrl = (v) => {
 };
 const safeCover = (s) => validUrl(safeString(s));
 const status = (s) => ["draft", "reviewed", "published"].includes(s) ? s : "draft";
+const credits = (values) => {
+  if (!Array.isArray(values)) return [];
+  const seen = new Set();
+  return values.flatMap((item) => {
+    const name = safeString(item?.name);
+    if (!name) return [];
+    const url = validUrl(item?.url) || null;
+    const key = name.toLowerCase() + "\u0000" + (url || "");
+    if (seen.has(key)) return [];
+    seen.add(key);
+    return [{ name, url }];
+  });
+};
 const validLanguage = (lang) => { try { new Intl.Locale(lang); return true; } catch { return false; } };
 
 export function canIndexGameLocale(game, locale) {
-  const intro = game.introductions[locale];
-  const clean = (value) => safeString(value) && !BAD_COPY.test(value);
+  // An explicit opt-out and factual, technically usable game URLs are the only gates.
+  // Draft status, summary length, absent translations and NSFW classification never block indexing.
   return LOCALES.includes(locale) &&
     game.indexPolicy !== "noindex" &&
-    ["reviewed", "published"].includes(game.editorialStatus) &&
-    intro && ["reviewed", "published"].includes(intro.editorialStatus) &&
-    game.instances.some((i) => i.available === true && !i.needsReview) &&
-    game.nsfw !== "unknown" &&
-    safeString(intro.summary).length >= 60 &&
-    clean(intro.summary) && clean(intro.overview || intro.summary) &&
-    !game.qualityFlags.includes("description-unverified") &&
-    !game.qualityFlags.includes("template") &&
-    !!safeString(game.titleByLocale[locale]);
+    !!safeString(game.titleByLocale?.[locale]) &&
+    Array.isArray(game.instances) &&
+    game.instances.some((instance) =>
+      instance.available === true &&
+      !instance.needsReview &&
+      !!validUrl(instance.playUrl)
+    );
 }
 export function adaptGameV1(key, source) {
   must(source && typeof source === "object" && !Array.isArray(source), "Invalid Game object: " + key);
@@ -47,13 +59,15 @@ export function adaptGameV1(key, source) {
     slug: key, schemaVersion: 1, originalTitle: source.originalTitle.trim(), titleByLocale,
     aliases: Object.values(source.aliases || {}).flatMap((a) => strings(a)),
     introductions, genres: strings(source.taxonomy?.genres), themes: strings(source.taxonomy?.themes),
-    contentType: safeString(source.taxonomy?.contentType), developers: strings(source.developers?.map((x) => x.name)),
-    publishers: strings(source.publishers?.map((x) => x.name)),
+    contentType: safeString(source.taxonomy?.contentType), developers: credits(source.developers),
+    publishers: credits(source.publishers),
     releaseDate: /^\d{4}-\d{2}-\d{2}$/.test(source.release?.date || "") ? source.release.date : null,
     mediaCover: safeCover(source.media?.cover), nsfw: boolUnknown(source.contentAdvisory?.nsfw),
     editorialStatus: status(source.editorial?.status), qualityFlags: strings(source.editorial?.qualityFlags),
     indexPolicy: source.seo?.indexPolicy === "noindex" ? "noindex" : "auto",
-    relatedSlugs: strings(source.relations?.map?.((x) => x.slug) || []),
+    relations: (Array.isArray(source.relations) ? source.relations : []).map((relation) => ({
+      slug: safeString(relation?.gameId), type: safeString(relation?.type) || "related",
+    })),
     externalLinks: (Array.isArray(source.externalLinks) ? source.externalLinks : []).filter((x) => validUrl(x.url)).map((x) => ({ url: validUrl(x.url), label: safeString(x.label), type: safeString(x.type) })),
     rawInstances: source.instances,
   };
@@ -110,6 +124,9 @@ export function normalizeCatalog(registry, list, source = {}) {
         const playUrl = validUrl(sourceInstance.pagesUrl);
         must(playUrl && new URL(playUrl).hostname === "webrpg.org" && new URL(playUrl).pathname.startsWith("/" + encodeURIComponent(sourceInstance.forkName) + "/"), "Invalid original runtime URL: " + id);
         const needsReview = !!(sourceInstance.meta.reviewedSourceHeadSha && sourceInstance.sourceHeadSha && sourceInstance.meta.reviewedSourceHeadSha !== sourceInstance.sourceHeadSha);
+        if (typeof entry.nsfw === "boolean" && typeof sourceInstance.meta.nsfw === "boolean") {
+          must(entry.nsfw === sourceInstance.meta.nsfw, "NSFW classification mismatch for " + id);
+        }
         if (needsReview) warnings.push({ code: "source-changed", slug: key, instanceId: id });
         game.instances.push({
           type: "internal", id, title: entry.title, languages, nsfw: boolUnknown(entry.nsfw ?? sourceInstance.meta.nsfw),
@@ -121,12 +138,12 @@ export function normalizeCatalog(registry, list, source = {}) {
         const url = validUrl(entry.url);
         must(url, "Invalid external instance URL for " + key);
         const available = entry.available === true || entry.playable === true ? true : entry.available === false || entry.playable === false ? false : "unknown";
-        // A live external URL still needs an independent editorial check before public play/indexing.
-        const reviewed = entry.reviewed === true || ["reviewed", "published"].includes(entry.editorialStatus);
+        // A valid external HTTPS URL and explicit technical availability are sufficient.
+        // Editorial status is not a second approval gate for the public catalog.
         game.instances.push({
           type: "external", title: entry.title, languages, nsfw: boolUnknown(entry.nsfw),
           playUrl: url, coverUrl: safeCover(entry.cover) || game.mediaCover, available,
-          needsReview: available !== true || !reviewed, sourceRepoUrl: null, engine: safeString(entry.engine), forkName: null,
+          needsReview: available !== true, sourceRepoUrl: null, engine: safeString(entry.engine), forkName: null,
         });
       }
     }
@@ -145,6 +162,14 @@ export function normalizeCatalog(registry, list, source = {}) {
     if (!entry.meta?.gameSlug) continue;
     must(entry.meta.playable === true, "list.meta.gameSlug exists but is not playable: " + entry.id);
     must(ownership.has(entry.id.toLowerCase()), "Orphan gameSlug in list: " + entry.id);
+  }
+  for (const game of games) {
+    const seen = new Set();
+    for (const relation of game.relations) {
+      must(relation.slug && relation.slug !== game.slug && slugs.has(relation.slug.toLowerCase()), "Invalid relation target " + game.slug + " -> " + relation.slug);
+      must(!seen.has(relation.slug + ":" + relation.type), "Duplicate relation " + game.slug + " -> " + relation.slug);
+      seen.add(relation.slug + ":" + relation.type);
+    }
   }
   games.sort((a, b) => a.slug.localeCompare(b.slug, "en"));
   return { source, games, schemaVersions: [...schemaVersions].sort(), warnings,
@@ -170,7 +195,7 @@ export function makeSearchIndex(games, locale) {
     summary: g.introductions[locale].summary.slice(0, 280),
     genres: g.genres, themes: g.themes, languages: g.languages, nsfw: g.nsfw,
     coverUrl: g.coverUrl, href: "/" + locale + "/game/" + g.slug + "/",
-    searchText: normalizeTerm([g.slug, g.originalTitle, ...Object.values(g.titleByLocale), ...g.aliases, ...g.developers, ...g.publishers, ...g.genres, ...g.themes].join(" ")),
+    searchText: normalizeTerm([g.slug, g.originalTitle, ...Object.values(g.titleByLocale), ...g.aliases, ...g.developers.map((c) => c.name), ...g.publishers.map((c) => c.name), ...g.genres, ...g.themes].join(" ")),
   }));
 }
 export function searchGames(index, query, { language = "", genre = "", nsfw = false } = {}) {

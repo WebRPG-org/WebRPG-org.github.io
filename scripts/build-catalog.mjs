@@ -23,10 +23,9 @@ catalog.searchFiles = searchFiles;
 let frontendCommit = "unknown";
 try { frontendCommit = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(); } catch { /* Detached source tarball */ }
 catalog.frontendCommit = frontendCommit;
-catalog.catalogHash = sha256(JSON.stringify(catalog.games.map((g) => ({
-  slug: g.slug, titleByLocale: g.titleByLocale, introductions: g.introductions, genres: g.genres, themes: g.themes,
-  languages: g.languages, instances: g.instances, indexable: g.indexable, coverUrl: g.coverUrl,
-}))));
+// Only normalized, deterministic public view fields enter this digest. Upstream checkedAt
+// and other audit timestamps are deliberately excluded by normalizeCatalog's projection.
+catalog.catalogHash = sha256(JSON.stringify(catalog.games));
 await mkdir(join(cwd, ".cache"), { recursive: true });
 await writeFile(join(cwd, ".cache", "catalog.json"), JSON.stringify(catalog));
 console.log("Catalog: " + JSON.stringify({ sourceCommit: source.commit, stats: catalog.stats, schemaVersions: catalog.schemaVersions, searchFiles, catalogHash: catalog.catalogHash, warnings: catalog.warnings.length }));

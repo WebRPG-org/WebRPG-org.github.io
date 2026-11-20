@@ -1,6 +1,7 @@
 import type { GameView } from "../data/catalog";
 import type { Locale } from "../i18n/ui";
 import { taxonomyLabel } from "../i18n/ui";
+import { gameDescription } from "../data/game-description";
 const origin = "https://webrpg.org";
 export const absolute = (url: string) => url.startsWith("http") ? url : origin + url;
 export function breadcrumbs(entries: { title: string; href: string }[]) {
@@ -20,16 +21,17 @@ export function collectionSchema(title: string, description: string, canonical: 
 }
 export function gameSchema(game: GameView, locale: Locale, canonical: string, bread: { title: string; href: string }[]) {
   const webpage = { "@type": "WebPage", "@id": canonical + "#page", url: canonical, inLanguage: locale, name: game.titleByLocale[locale],
-    description: game.introductions[locale].summary };
+    description: gameDescription(game, locale) };
   if (!game.indexable[locale]) return { "@context": "https://schema.org", "@graph": [webpage, breadcrumbs(bread)] };
   const gameData: Record<string, unknown> = {
     "@type": "VideoGame", "@id": canonical + "#game", name: game.titleByLocale[locale],
-    description: game.introductions[locale].summary, genre: [...game.genres, ...game.themes].map((t) => taxonomyLabel(t, locale)),
+    description: gameDescription(game, locale), genre: [...game.genres, ...game.themes].map((t) => taxonomyLabel(t, locale)),
     inLanguage: game.languages, url: canonical,
   };
   if (game.coverUrl) gameData.image = game.coverUrl;
   if (game.releaseDate) gameData.datePublished = game.releaseDate;
-  if (game.developers.length) gameData.developer = game.developers.map((name) => ({ "@type": "Organization", name }));
-  if (game.publishers.length) gameData.publisher = game.publishers.map((name) => ({ "@type": "Organization", name }));
+  // Upstream credits do not assert individual vs organization; avoid inventing their identity.
+  if (game.developers.length) gameData.developer = game.developers.map((credit) => ({ "@type": "Thing", name: credit.name, ...(credit.url ? {url: credit.url} : {}) }));
+  if (game.publishers.length) gameData.publisher = game.publishers.map((credit) => ({ "@type": "Thing", name: credit.name, ...(credit.url ? {url: credit.url} : {}) }));
   return { "@context": "https://schema.org", "@graph": [webpage, breadcrumbs(bread), gameData] };
 }

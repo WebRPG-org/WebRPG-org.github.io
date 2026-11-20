@@ -19,6 +19,8 @@ export default function SearchDialog({ locale, indexUrl, availableLanguages, ava
   const [tag, setTag] = React.useState("");
   const [includeUnrated, setIncludeUnrated] = React.useState(false);
   const [active, setActive] = React.useState(0);
+  const [visibleCount, setVisibleCount] = React.useState(60);
+  const resetResults = () => { setActive(0); setVisibleCount(60); };
   const inputRef = React.useRef<HTMLInputElement>(null);
   const opener = React.useRef<HTMLButtonElement>(null);
   const composing = React.useRef(false);
@@ -54,7 +56,7 @@ export default function SearchDialog({ locale, indexUrl, availableLanguages, ava
     );
   }, [query, index, language, tag, includeUnrated]);
 
-  const limited = results.slice(0, 60);
+  const limited = results.slice(0, visibleCount);
   function onKeyDown(event: React.KeyboardEvent) {
     if (event.key === "Tab") {
       const controls = [...event.currentTarget.querySelectorAll<HTMLElement>('input:not([disabled]), button:not([disabled]), select:not([disabled]), a[href]')]
@@ -70,9 +72,15 @@ export default function SearchDialog({ locale, indexUrl, availableLanguages, ava
       return;
     }
     if (event.key === "Escape") { setOpen(false); event.preventDefault(); return; }
+    // The panel contains native select/checkbox/button elements: never hijack their keyboard actions.
+    const target = event.target;
+    const typing = target === inputRef.current;
+    const anchor = target instanceof HTMLAnchorElement && !!target.closest(".search-results");
+    if (!typing && !anchor) return;
     if (event.key === "ArrowDown") { setActive((x) => Math.min(x + 1, limited.length - 1)); event.preventDefault(); }
     if (event.key === "ArrowUp") { setActive((x) => Math.max(0, x - 1)); event.preventDefault(); }
-    if (event.key === "Enter" && !composing.current && limited[active]) {
+    if (event.key === "Enter" && typing && !composing.current && !event.nativeEvent.isComposing && limited[active]) {
+      event.preventDefault();
       window.location.assign(limited[active].href);
     }
   }
@@ -85,21 +93,21 @@ export default function SearchDialog({ locale, indexUrl, availableLanguages, ava
     {open && <div className="search-dialog" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
       <section className="search-panel" role="dialog" aria-modal="true" aria-label={copy.search} onKeyDown={onKeyDown}>
         <div className="search-head">
-          <Input ref={inputRef} value={query} onChange={(event) => { setQuery(event.target.value); setActive(0); }}
+          <Input ref={inputRef} value={query} onChange={(event) => { setQuery(event.target.value); resetResults(); }}
             onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }}
             placeholder={copy.searchPlaceholder} aria-label={copy.search} />
           <button type="button" onClick={() => setOpen(false)} aria-label={copy.close}><X size={20}/></button>
         </div>
         <div className="search-filters">
-          <label>{copy.genre} <select value={tag} onChange={(e) => { setTag(e.target.value); setActive(0); }}>
+          <label>{copy.genre} <select value={tag} onChange={(e) => { setTag(e.target.value); resetResults(); }}>
             <option value="">{copy.any}</option>
             {availableTags.map((item) => <option value={item} key={item}>{taxonomyLabel(item, locale)}</option>)}
           </select></label>
-          <label>{copy.language} <select value={language} onChange={(e) => { setLanguage(e.target.value); setActive(0); }}>
+          <label>{copy.language} <select value={language} onChange={(e) => { setLanguage(e.target.value); resetResults(); }}>
             <option value="">{copy.any}</option>
             {availableLanguages.map((item) => <option value={item} key={item}>{langLabel(item, locale)}</option>)}
           </select></label>
-          <label><input type="checkbox" checked={includeUnrated} onChange={(e) => { setIncludeUnrated(e.target.checked); setActive(0); }}/>{copy.includeUnrated}</label>
+          <label><input type="checkbox" checked={includeUnrated} onChange={(e) => { setIncludeUnrated(e.target.checked); resetResults(); }}/>{copy.includeUnrated}</label>
         </div>
         <div className="search-results" role="listbox" aria-label={copy.search}>
           {!index && !error ? <p>{copy.searchHint}…</p> : null}
@@ -109,6 +117,7 @@ export default function SearchDialog({ locale, indexUrl, availableLanguages, ava
             <strong>{item.title}</strong> {item.nsfw === "unknown" ? " · " + copy.unknown : item.nsfw ? " · " + copy.adult : ""}
             <small>{item.summary.slice(0, 130) || item.originalTitle}</small>
           </a>)}
+          {index && limited.length < results.length && <button className="search-more" type="button" onClick={() => setVisibleCount((count) => Math.min(results.length, count + 60))}>{copy.moreResults} ({limited.length}/{results.length})</button>}
           {index && <p className="result-count">{results.length} {copy.gameCount}</p>}
         </div>
       </section>

@@ -12,6 +12,8 @@ const edgePath = process.env.BROWSER_PATH || (process.platform === "win32"
 const images = join(root, ".cache", "ui");
 mkdirSync(images, {recursive:true});
 const gameCatalog = JSON.parse(readFileSync(join(root, ".cache", "catalog.json"), "utf8"));
+const sampleGame = gameCatalog.games.find((g) => g.slug === "narcissu") || gameCatalog.games.find((g) => g.instances.some((i) => i.available === true && !i.needsReview));
+const sampleRunUrl = sampleGame.instances.find((instance) => instance.available === true && !instance.needsReview)?.playUrl;
 const preview = process.env.WEBRPG_PREVIEW_URL ? null : spawn(process.execPath, [join(root, "node_modules", "astro", "bin", "astro.mjs"), "preview", "--host", "127.0.0.1", "--port", "4329"], {
   cwd: root, stdio: "ignore", windowsHide: true, env: {...process.env, ASTRO_TELEMETRY_DISABLED:"1"},
 });
@@ -56,12 +58,12 @@ try {
     const r=await page.goto(http("/en/page/2/"),{waitUntil:"domcontentloaded"});
     assert.equal(r.status(),200);
     assert.equal(await page.locator(".game-card").count(),36);
-    const detail=await page.goto(http("/ja/game/narcissu/"),{waitUntil:"domcontentloaded"});
+    const detail=await page.goto(http("/ja/game/" + sampleGame.slug + "/"),{waitUntil:"domcontentloaded"});
     assert.equal(detail.status(),200);
     assert.equal(await page.locator('html').getAttribute('lang'),"ja");
-    assert(await page.locator('.instance-card a[href="https://webrpg.org/Destiny236-Narcissuweb/"]').count()>0);
-    assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'),"noindex,follow");
-    assert.equal(await page.locator('.language-switch a[data-webrpg-language="en"]').getAttribute('href'),"/en/game/narcissu/");
+    assert(await page.locator(".instance-card a[href]").evaluateAll((nodes, url) => nodes.some((element) => element.getAttribute("href") === url), sampleRunUrl));
+    assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'),sampleGame.indexable.ja ? "index,follow" : "noindex,follow");
+    assert.equal(await page.locator('.language-switch a[data-webrpg-language="en"]').getAttribute('href'),"/en/game/" + sampleGame.slug + "/");
     await page.screenshot({path:join(images,"desktop-detail-ja.png"),fullPage:false});
   });
   await check("All three languages, tags, playable languages, and exact 404 (no SPA catch-all)",async()=>{
@@ -70,7 +72,7 @@ try {
       assert.equal(response.status(),200,path);
       assert(await page.locator("h1").count()>0,path);
     }
-    const invalid=await page.goto(http("/fr/game/narcissu/"),{waitUntil:"domcontentloaded"});
+    const invalid=await page.goto(http("/fr/game/" + sampleGame.slug + "/"),{waitUntil:"domcontentloaded"});
     assert.equal(invalid.status(),404);
     const invalidSlug=await page.goto(http("/en/game/definitely-not-a-real-game/"),{waitUntil:"domcontentloaded"});
     assert.equal(invalidSlug.status(),404);
@@ -110,10 +112,58 @@ try {
     assert(widened>=safeCount);
     await page.locator(".search-head button").click();
   });
+  await check("Search has reachable results beyond first 60 and never hijacks select or IME Enter", async()=>{
+    await page.goto(http("/en/"),{waitUntil:"domcontentloaded"});
+    await page.locator(".search-bar-button").click();
+    await page.locator(".result-count").waitFor({state:"visible",timeout:20000});
+    const count=Number((await page.locator(".result-count").innerText()).match(/\d+/)[0]);
+    assert(count>60);
+    while (await page.locator(".search-more").count()) await page.locator(".search-more").click();
+    assert.equal(await page.locator('.search-results a[role="option"]').count(),count);
+    const path=new URL(page.url()).pathname;
+    const selector=page.locator(".search-filters select").first();
+    await selector.focus();
+    await page.keyboard.press("Enter");
+    assert.equal(new URL(page.url()).pathname,path);
+    const input=page.locator(".search-head input");
+    await input.fill(sampleGame.slug);
+    await page.locator(".search-results a[role=option]").first().waitFor({state:"visible"});
+    await input.dispatchEvent("compositionstart");
+    await input.press("Enter");
+    assert.equal(new URL(page.url()).pathname,path);
+    await input.dispatchEvent("compositionend");
+    await page.locator(".search-head button").click();
+  });
+  await check("Draft, short synopsis and NSFW/unknown classification follow direct-publication rules",async()=>{
+    const collator = new Intl.Collator("en",{sensitivity:"base",numeric:true});
+    const ordered = [...gameCatalog.games].sort((a,b)=>collator.compare(a.titleByLocale.en,b.titleByLocale.en)||a.slug.localeCompare(b.slug));
+    for (const [state,label] of [[true,"Adult"],["unknown","Unrated"]]) {
+      const game=gameCatalog.games.find((item)=>item.nsfw===state && item.indexable.en);
+      assert(game,"Missing class sample for " + state);
+      const index=ordered.findIndex((item)=>item.slug===game.slug);
+      const pageNumber=Math.floor(index/36)+1;
+      await page.goto(http(pageNumber===1?"/en/":"/en/page/"+pageNumber+"/"),{waitUntil:"domcontentloaded"});
+      const card=page.locator('.game-card').filter({has:page.locator('a[href="/en/game/'+game.slug+'/"]')}).first();
+      assert.equal(await card.count(),1);
+      assert(await card.locator(".size-pill").filter({hasText:label}).count()>=1,"Wrong card classification for "+game.slug);
+      await page.goto(http("/en/game/"+game.slug+"/"),{waitUntil:"domcontentloaded"});
+      assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'),"index,follow");
+      assert.equal((await page.locator('.detail-tags .taxonomy-pill.caution').first().innerText()).trim(),label);
+    }
+    const short=gameCatalog.games.find((game)=>game.indexable["zh-Hans"] && game.introductions["zh-Hans"].summary.length<60);
+    assert(short,"Missing short-description sample");
+    await page.goto(http("/zh-Hans/game/"+short.slug+"/"),{waitUntil:"domcontentloaded"});
+    assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'),"index,follow");
+    assert((await page.locator('.detail-summary').first().innerText()).length>0);
+    for(const game of gameCatalog.games.filter((g)=>!g.indexable.en)) {
+      await page.goto(http("/en/game/"+game.slug+"/"),{waitUntil:"domcontentloaded"});
+      assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'),"noindex,follow");
+    }
+  });
   await check("Mobile 320/390px pages avoid horizontal overflow and keep readable nav",async()=>{
     for(const width of [320,390]){
       await page.setViewportSize({width,height:740});
-      for(const path of ["/en/","/zh-Hans/game/narcissu/"]){
+      for(const path of ["/en/","/zh-Hans/game/" + sampleGame.slug + "/"]){
         await page.goto(http(path),{waitUntil:"domcontentloaded"});
         const dim=await page.evaluate(()=>({scrollWidth:document.documentElement.scrollWidth,innerWidth:window.innerWidth}));
         assert(dim.scrollWidth<=dim.innerWidth+1,JSON.stringify({width,path,...dim}));
@@ -139,19 +189,19 @@ try {
     assert(await p.locator('a[href="/en/tags/horror/"]').first().isVisible());
     await p.locator('.language-switch a[href="/ja/"]').click();
     assert.equal(new URL(p.url()).pathname,"/ja/");
-    res=await p.goto(http("/en/game/narcissu/"),{waitUntil:"domcontentloaded"});
+    res=await p.goto(http("/en/game/" + sampleGame.slug + "/"),{waitUntil:"domcontentloaded"});
     assert.equal(res.status(),200);
-    assert(await p.locator('.instance-card a[href="https://webrpg.org/Destiny236-Narcissuweb/"]').count()>0);
+    assert(await p.locator(".instance-card a[href]").evaluateAll((nodes, url) => nodes.some((element) => element.getAttribute("href") === url), sampleRunUrl));
     await nojs.close();
   });
   await ctx.close();
   await check("Language recommendation follows navigator.languages, dismisses session and respects manual language",async()=>{
     const ja=await browser.newContext({viewport:{width:390,height:760},locale:"ja-JP"});
     const p=await ja.newPage();
-    await p.goto(http("/en/game/narcissu/"),{waitUntil:"domcontentloaded"});
+    await p.goto(http("/en/game/" + sampleGame.slug + "/"),{waitUntil:"domcontentloaded"});
     const suggest=p.locator(".language-suggestion");
     await suggest.waitFor({state:"visible",timeout:20000});
-    assert.equal(await suggest.locator("a").getAttribute("href"),"/ja/game/narcissu/");
+    assert.equal(await suggest.locator("a").getAttribute("href"),"/ja/game/" + sampleGame.slug + "/");
     await p.screenshot({path:join(images,"mobile-language-suggestion.png"),fullPage:false});
     await suggest.locator("button").first().click();
     await p.goto(http("/en/"),{waitUntil:"domcontentloaded"});

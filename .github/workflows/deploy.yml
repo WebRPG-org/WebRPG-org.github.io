@@ -48,8 +48,11 @@ jobs:
           ASTRO_TELEMETRY_DISABLED: '1'
         run: npm run ci
       - name: Install Chrome for real browser checks
+        id: setup-chrome
         uses: browser-actions/setup-chrome@v2
       - name: Run desktop, mobile, no-JavaScript and language recommendation checks
+        env:
+          BROWSER_PATH: ${{ steps.setup-chrome.outputs.chrome-path }}
         run: npm run test:browser
       - name: Upload build manifest
         uses: actions/upload-artifact@v4

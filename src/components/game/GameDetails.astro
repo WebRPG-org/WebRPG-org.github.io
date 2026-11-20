@@ -3,14 +3,19 @@ import type { GameView } from "../../data/catalog";
 import type { Locale } from "../../i18n/ui";
 import { UI, taxonomyLabel, langLabel } from "../../i18n/ui";
 import { gameBySlug } from "../../data/catalog";
+import { gameDescription, publishedCopy, relationLabel } from "../../data/game-description";
 interface Props { game: GameView; locale: Locale }
 const { game, locale } = Astro.props;
 const copy = UI[locale];
 const intro = game.introductions[locale];
-const approved = ["reviewed", "published"].includes(game.editorialStatus) && ["reviewed", "published"].includes(intro.editorialStatus);
-const cleanOverview = approved && intro.overview && !/待审核|示例内容|placeholder|lorem ipsum|占位/i.test(intro.overview);
-const links = [...game.genres, ...game.themes];
-const related = game.relatedSlugs.map((slug) => gameBySlug.get(slug)).filter((g): g is GameView => !!g);
+const summary = gameDescription(game, locale);
+const overview = publishedCopy(intro.overview);
+const story = publishedCopy(intro.story);
+const highlights = intro.highlights.map(publishedCopy).filter(Boolean);
+const links = [...new Set([...game.genres, ...game.themes])];
+const related = game.relations
+  .map((relation) => ({ ...relation, game: gameBySlug.get(relation.slug) }))
+  .filter((item): item is { slug: string; type: string; game: GameView } => !!item.game);
 ---
 <main class="catalog-shell detail-shell">
   <nav class="breadcrumbs" aria-label="Breadcrumb"><a href={"/" + locale + "/"}>{copy.all}</a><span aria-hidden="true">/</span><span aria-current="page">{game.titleByLocale[locale]}</span></nav>
@@ -23,23 +28,22 @@ const related = game.relatedSlugs.map((slug) => gameBySlug.get(slug)).filter((g)
       <div class="detail-intro">
         <h1>{game.titleByLocale[locale]}</h1>
         {game.titleByLocale[locale] !== game.originalTitle && <p class="detail-original">{copy.original}: <span lang="und">{game.originalTitle}</span></p>}
-        {game.editorialStatus === "draft" && <p class="draft-note">{copy.draft}</p>}
-        {intro.summary && <p class="detail-summary">{intro.summary}</p>}
+        <p class="detail-summary">{summary}</p>
         <div class="detail-tags">
           {links.map((tag) => <a href={"/" + locale + "/tags/" + tag + "/"} class="taxonomy-pill">{taxonomyLabel(tag, locale)}</a>)}
-          {game.nsfw !== false && <span class="taxonomy-pill caution">{game.nsfw ? copy.adult : copy.unknown}</span>}
+          {game.nsfw !== false && <span class="taxonomy-pill caution">{game.nsfw === true ? copy.adult : copy.unknown}</span>}
         </div>
       </div>
     </div>
-    {approved && (cleanOverview || intro.story || intro.highlights.length) ? <section class="detail-section">
+    {(overview || story || highlights.length > 0) && <section class="detail-section">
       <h2>{copy.narrative}</h2>
-      {cleanOverview && <p>{intro.overview}</p>}
-      {intro.story && <p>{intro.story}</p>}
-      {intro.highlights.length > 0 && <ul>{intro.highlights.map((item) => <li>{item}</li>)}</ul>}
-    </section> : null}
+      {overview && <p>{overview}</p>}
+      {story && <p>{story}</p>}
+      {highlights.length > 0 && <ul>{highlights.map((item) => <li>{item}</li>)}</ul>}
+    </section>}
     <div class="detail-facts">
-      {game.developers.length > 0 && <p><strong>{copy.developers}:</strong> {game.developers.join(", ")}</p>}
-      {game.publishers.length > 0 && <p><strong>{copy.publishers}:</strong> {game.publishers.join(", ")}</p>}
+      {game.developers.length > 0 && <p><strong>{copy.developers}:</strong> {game.developers.map((credit, index) => <span>{index > 0 ? ", " : ""}{credit.url ? <a href={credit.url} target="_blank" rel="noopener noreferrer">{credit.name}</a> : credit.name}</span>)}</p>}
+      {game.publishers.length > 0 && <p><strong>{copy.publishers}:</strong> {game.publishers.map((credit, index) => <span>{index > 0 ? ", " : ""}{credit.url ? <a href={credit.url} target="_blank" rel="noopener noreferrer">{credit.name}</a> : credit.name}</span>)}</p>}
       {game.releaseDate && <p><strong>{copy.release}:</strong> <time datetime={game.releaseDate}>{game.releaseDate}</time></p>}
     </div>
     <section class="detail-section" aria-label={copy.versions}>
@@ -56,7 +60,7 @@ const related = game.relatedSlugs.map((slug) => gameBySlug.get(slug)).filter((g)
           </div>
           <div class="instance-actions">
             {item.available === true && !item.needsReview ? <a class="pixel__button pixel-default__button pixel-font" href={item.playUrl} target="_blank" rel="noopener noreferrer">{copy.play}</a>
-              : <span class="draft-note">{copy.draft}</span>}
+              : <span class="draft-note">{copy.unavailable}</span>}
             {item.sourceRepoUrl && <a href={item.sourceRepoUrl} class="instance-source" target="_blank" rel="noopener noreferrer">{copy.source}</a>}
           </div>
         </div>)}
@@ -66,7 +70,7 @@ const related = game.relatedSlugs.map((slug) => gameBySlug.get(slug)).filter((g)
       <ul>{game.externalLinks.map((link) => <li><a href={link.url} rel="noopener noreferrer" target="_blank">{link.label || link.type || link.url}</a></li>)}</ul>
     </div>}
     {related.length > 0 && <section class="detail-section"><h2>{copy.related}</h2>
-      <ul>{related.map((g) => <li><a href={"/" + locale + "/game/" + g.slug + "/"}>{g.titleByLocale[locale]}</a></li>)}</ul>
+      <ul>{related.map((item) => <li><span>{relationLabel(item.type, locale)}: </span><a href={"/" + locale + "/game/" + item.game.slug + "/"}>{item.game.titleByLocale[locale]}</a></li>)}</ul>
     </section>}
   </article>
 </main>

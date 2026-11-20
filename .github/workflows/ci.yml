@@ -31,8 +31,11 @@ jobs:
           ASTRO_TELEMETRY_DISABLED: '1'
         run: npm run ci
       - name: Install Chrome for repeatable Playwright smoke tests
+        id: setup-chrome
         uses: browser-actions/setup-chrome@v2
       - name: Run real desktop, mobile and no-JavaScript browser checks
+        env:
+          BROWSER_PATH: ${{ steps.setup-chrome.outputs.chrome-path }}
         run: npm run test:browser
       - name: Upload build audit (never deploy from PR)
         if: always()

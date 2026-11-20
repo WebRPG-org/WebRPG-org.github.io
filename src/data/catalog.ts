@@ -13,9 +13,9 @@ export type GameView = {
   slug: string; schemaVersion: number; originalTitle: string;
   titleByLocale: Record<Locale, string>; introductions: Record<Locale, Introduction>;
   aliases: string[]; genres: string[]; themes: string[]; contentType: string;
-  developers: string[]; publishers: string[]; releaseDate: string | null;
+  developers: {name: string; url: string | null}[]; publishers: {name: string; url: string | null}[]; releaseDate: string | null;
   nsfw: Nsfw; editorialStatus: string; qualityFlags: string[]; indexPolicy: string;
-  relatedSlugs: string[]; externalLinks: {url: string; label: string; type: string}[];
+  relations: {slug: string; type: string}[]; externalLinks: {url: string; label: string; type: string}[];
   instances: InstanceView[]; languages: string[]; coverUrl: string | null; indexable: Record<Locale, boolean>;
 };
 export type Catalog = {

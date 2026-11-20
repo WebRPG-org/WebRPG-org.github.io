@@ -16,6 +16,7 @@ const { locale, route, title, description, indexable, ogImage, jsonLd, root = fa
 const canonical = absolute(routeUrl(locale, route));
 const alternates = urlAlternates(route, indexable);
 const fullTitle = title.includes("WebRPG") ? title : title + " | WebRPG";
+const ogLocale: Record<Locale, string> = { en: "en_US", "zh-Hans": "zh_CN", ja: "ja_JP" };
 const json = JSON.stringify(jsonLd ?? { "@context": "https://schema.org", "@type": "WebPage", name: fullTitle, ...(notFound ? {} : {url:canonical}) }).replace(/</g, "\\u003c");
 const currentPath = root ? "/" : routeUrl(locale, route);
 ---
@@ -34,7 +35,7 @@ const currentPath = root ? "/" : routeUrl(locale, route);
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
     {!notFound && <meta property="og:url" content={canonical} />}
-    <meta property="og:locale" content={locale} />
+    <meta property="og:locale" content={ogLocale[locale]} />
     {ogImage && <meta property="og:image" content={ogImage} />}
     <meta name="twitter:card" content={ogImage ? "summary_large_image" : "summary"} />
     <link rel="icon" type="image/png" href="/assets/logo.png" />

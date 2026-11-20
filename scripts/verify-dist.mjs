@@ -59,6 +59,9 @@ for (const [path, page] of html) {
     uniqueCanonicalTitles.set(renderedTitle, path);
   }
   assert(descFrom(page).length > 9, path + ": missing description");
+  const locale = path === "/" || path === "/404.html" ? "en" : path.split("/")[1];
+  const ogLocale = {en: "en_US", "zh-Hans": "zh_CN", ja: "ja_JP"}[locale];
+  assert(!!attr(page, "meta", "property", "og:locale").match(new RegExp('content="' + ogLocale + '"')), path + ": invalid Open Graph locale");
   assert(/<h1\b/i.test(page), path + ": missing static H1");
   assert(/<html\b[^>]*\blang="(en|ja|zh-Hans)"/.test(page), path + ": bad html language");
   if (!is404) assert(canonical === expected, path + ": incorrect canonical " + canonical);
@@ -101,12 +104,26 @@ assert(!html.has("/en/page/1/"), "Duplicate first page route");
 assert(!html.has("/en/game/does-not-exist/"), "Nonexistent game was emitted");
 assert(!html.has("/fr/"), "Unsupported language was emitted");
 assert(html.has("/en/page/2/"), "Missing page 2");
-assert(html.has("/en/game/narcissu/"), "Missing Narcissu detail");
-assert(html.has("/ja/game/narcissu/"), "Missing Japanese Narcissu detail");
 assert(html.has("/en/languages/ja/"), "Missing actual playable language route");
-const narcissu = html.get("/en/game/narcissu/") || "";
-assert(narcissu.includes("Narcissu") && narcissu.includes("Destiny236-Narcissuweb"), "Game detail lacks static content or legacy play URL");
-assert(robots.get("/en/game/narcissu/")?.includes("noindex"), "Draft Narcissu accidentally indexable");
+// Never encode an individual game's historical draft/noindex status into the auditor.
+// Snapshot-driven assertions follow the product's direct-publication policy for every locale.
+for (const game of catalog.games) {
+  for (const locale of ["en", "zh-Hans", "ja"]) {
+    const path = "/" + locale + "/game/" + game.slug + "/";
+    const page = html.get(path) || "";
+    const indexed = game.indexable[locale] === true;
+    assert(!!page, path + ": missing game detail");
+    assert(robots.get(path) === (indexed ? "index,follow" : "noindex,follow"), path + ": wrong index decision");
+    assert(page.includes("<h1"), path + ": missing factual game heading");
+    assert(!page.includes("作品介绍尚未审核") && !page.includes("Editorial preview") && !page.includes("審査されていません"), path + ": stale draft preview notice");
+    for (const relation of game.relations) {
+      assert(page.includes('href="/' + locale + '/game/' + relation.slug + '/"'), path + ": missing directed relation to " + relation.slug);
+    }
+    for (const credit of [...game.developers, ...game.publishers]) {
+      if (credit.url) assert(page.includes('href="' + credit.url.replace(/&/g,"&amp;") + '"'), path + ": missing credited source URL " + credit.name);
+    }
+  }
+}
 for (const [path, page] of html) {
   const links = [...page.matchAll(/<link\b[^>]*rel="alternate"[^>]*>/gi)].map((x) => x[0]);
   for (const link of links) {
@@ -135,7 +152,15 @@ for (const url of sitemap) {
   assert(canonicals.get(path) === url, "Noncanonical in sitemap " + path);
 }
 assert(!sitemap.includes("https://webrpg.org/"), "Root duplicate in sitemap");
-assert(!sitemap.some((url) => /\/game\//.test(url) && robots.get(new URL(url).pathname)?.includes("noindex")), "Draft in sitemap");
+const sitemapSet = new Set(sitemap);
+for (const game of catalog.games) {
+  for (const locale of ["en", "zh-Hans", "ja"]) {
+    const path = "/" + locale + "/game/" + game.slug + "/";
+    const listed = sitemapSet.has("https://webrpg.org" + path);
+    assert(listed === (game.indexable[locale] === true), path + ": sitemap/indexability mismatch");
+  }
+}
+assert(!sitemap.some((url) => /\/game\//.test(url) && robots.get(new URL(url).pathname)?.includes("noindex")), "Noindex game appears in sitemap");
 assert((await readFile(join(dist, "CNAME"), "utf8")).trim() === "webrpg.org", "CNAME mismatch");
 assert(names.has("robots.txt"), "Missing robots.txt");
 assert(!names.has("list.json") && !names.has("games.json"), "Raw upstream JSON leaked into public dist");
