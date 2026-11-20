@@ -159,22 +159,26 @@ test("search index covers all Game records, beyond the first 36, without popular
 });
 
 
-test("published source editorial rating is optional and sorts descending, without inventing user ratings", () => {
+test("catalog sorts by genuine source popularity, then localized name; editorial ratings remain display-only", () => {
   const real=normalizeCatalog(rawGames,rawList,snapshot.source);
   const scored=real.games.filter(g=>g.editorialRating!==null);
   assert.equal(scored.length,17);
+  assert.equal(real.games.filter(g=>g.popularity!==null).length,414);
   assert.equal(real.games.find(g=>g.slug==="narcissu").editorialRating,8);
-  const sorted=sortedGames(real.games,"en");
-  assert(sorted.slice(0,scored.length).every(g=>g.editorialRating!==null));
-  assert(sorted.slice(scored.length).every(g=>g.editorialRating===null));
-  for(let i=1;i<scored.length;i++) assert(sorted[i-1].editorialRating>=sorted[i].editorialRating);
-  assert.equal(sorted[0].editorialRating,9);
-  const changed={...real.games.find(g=>g.slug==="narcissu"),editorialRating:null};
-  assert(sortedGames([real.games.find(g=>g.slug==="orangeblood"),changed],"en")[0].slug==="orangeblood");
-  for(const locale of LOCALES){
-    const result=makeSearchIndex(real.games,locale);
-    assert(result.every(g=>!Object.hasOwn(g,"editorialRating")&&!Object.hasOwn(g,"aggregateRating")));
+  assert.equal(real.games.find(g=>g.slug==="narcissu").popularity,8);
+  for (const locale of LOCALES) {
+    const sorted=sortedGames(real.games,locale);
+    assert.equal(sorted.length,414);
+    for (let i=1;i<sorted.length;i++) assert(sorted[i-1].popularity>=sorted[i].popularity);
+    const ties=sorted.filter(g=>g.popularity===8);
+    const collator=new Intl.Collator(locale,{sensitivity:"base",numeric:true});
+    assert.deepEqual(ties.map(g=>g.slug),[...ties].sort((a,b)=>collator.compare(a.titleByLocale[locale],b.titleByLocale[locale])||a.slug.localeCompare(b.slug)).map(g=>g.slug));
+    const index=makeSearchIndex(real.games,locale);
+    assert(index.every(g=>!Object.hasOwn(g,"popularity")&&!Object.hasOwn(g,"editorialRating")&&!Object.hasOwn(g,"aggregateRating")));
   }
+  const popularUnrated={...real.games.find(g=>g.slug==="narcissu"),editorialRating:null,popularity:9};
+  const lowerRated={...real.games.find(g=>g.slug==="cold-front"),editorialRating:10,popularity:1};
+  assert.equal(sortedGames([lowerRated,popularUnrated],"en")[0].slug,"narcissu");
 });
 
 test("ratings must stay optional and reject invalid or out-of-range sources",()=>{
@@ -185,4 +189,20 @@ test("ratings must stay optional and reject invalid or out-of-range sources",()=
   assert.equal(normalize(x).games[0].editorialRating,null);
   x.games.fixture.rating="9";
   assert.equal(normalize(x).games[0].editorialRating,null);
+});
+
+
+test("optional popularity is strictly numeric and deterministic, without fabricating a default",()=>{
+  const x=fixture();
+  x.games.fixture.popularity=7;
+  assert.equal(normalize(x).games[0].popularity,7);
+  x.games.fixture.popularity="7";
+  assert.equal(normalize(x).games[0].popularity,null);
+  x.games.fixture.popularity=-1;
+  assert.equal(normalize(x).games[0].popularity,null);
+  delete x.games.fixture.popularity;
+  assert.equal(normalize(x).games[0].popularity,null);
+  const unscored=normalize(x).games[0];
+  const withRank={...unscored,slug:"ranked",popularity:1};
+  assert.equal(sortedGames([unscored,withRank],"en")[0].slug,"ranked");
 });

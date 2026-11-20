@@ -143,7 +143,7 @@ try {
   });
   await check("Draft, short synopsis and NSFW/unknown classification follow direct-publication rules",async()=>{
     const collator = new Intl.Collator("en",{sensitivity:"base",numeric:true});
-    const ordered = [...gameCatalog.games].sort((a,b)=>(b.editorialRating??-1)-(a.editorialRating??-1)||collator.compare(a.titleByLocale.en,b.titleByLocale.en)||a.slug.localeCompare(b.slug));
+    const ordered = [...gameCatalog.games].sort((a,b)=>(b.popularity??-1)-(a.popularity??-1)||collator.compare(a.titleByLocale.en,b.titleByLocale.en)||a.slug.localeCompare(b.slug));
     for (const [state,label] of [[true,"Adult"],["unknown","Unrated"]]) {
       const game=gameCatalog.games.find((item)=>item.nsfw===state && item.indexable.en);
       assert(game,"Missing class sample for " + state);
@@ -167,14 +167,23 @@ try {
       assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'),"noindex,follow");
     }
   });
-  await check("Editorial rating drives stable work order; NSFW facets and card tags are navigable without JS",async()=>{
+  await check("Popularity determines work order, action buttons align at card bottoms, and NSFW facets navigate statically",async()=>{
     await page.goto(http("/zh-Hans/"),{waitUntil:"domcontentloaded"});
-    const scoreGames=gameCatalog.games.filter(game=>game.editorialRating!==null);
-    const scores=await page.locator(".game-card .game-rating").allInnerTexts();
-    assert.equal(scoreGames.length,17);
-    assert.equal(scores.length,scoreGames.length);
-    const sortedScores=scores.map(text=>Number(text.match(/\d+/)?.[0]));
-    assert.deepEqual(sortedScores,[...sortedScores].sort((a,b)=>b-a));
+    const collator=new Intl.Collator("zh-Hans",{sensitivity:"base",numeric:true});
+    const ordered=[...gameCatalog.games].sort((a,b)=>(b.popularity??-1)-(a.popularity??-1)||collator.compare(a.titleByLocale["zh-Hans"],b.titleByLocale["zh-Hans"])||a.slug.localeCompare(b.slug));
+    const links=await page.locator(".game-card .game-title a").evaluateAll(nodes=>nodes.map(el=>el.getAttribute("href")));
+    assert.deepEqual(links,ordered.slice(0,36).map(game=>"/zh-Hans/game/"+game.slug+"/"),"Directory order must be popularity first");
+    assert((await page.locator(".catalog-sort-summary").innerText()).includes("流行度"));
+    assert.equal(gameCatalog.games.filter(game=>game.popularity!==null).length,414);
+    const ratedVisible=ordered.slice(0,36).filter(game=>game.editorialRating!==null).length;
+    assert.equal(await page.locator(".game-card .game-rating").count(),ratedVisible,"Editorial ratings remain optional display badges");
+    const bottoms=await page.locator(".game-card").evaluateAll(cards=>cards.slice(0,4).map(card=>{
+      const cr=card.getBoundingClientRect(),ar=card.querySelector(".game-actions").getBoundingClientRect();
+      return {cardBottom:cr.bottom,actionBottom:ar.bottom,actionTop:ar.top};
+    }));
+    assert.equal(bottoms.length,4);
+    assert(Math.max(...bottoms.map(x=>x.actionBottom))-Math.min(...bottoms.map(x=>x.actionBottom))<=2,
+      "Action buttons must align with row bottom regardless of content length: "+JSON.stringify(bottoms));
     assert.equal(await page.locator(".catalog-intro-card h1").innerText(),"作品目录");
     const firstScoreCard=page.locator(".game-card").first();
     const buttonBounds=await firstScoreCard.locator(".game-actions .action-button").evaluateAll((els)=>els.map(el=>{

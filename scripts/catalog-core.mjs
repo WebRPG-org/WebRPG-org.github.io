@@ -63,6 +63,7 @@ export function adaptGameV1(key, source) {
     publishers: credits(source.publishers),
     releaseDate: /^\d{4}-\d{2}-\d{2}$/.test(source.release?.date || "") ? source.release.date : null,
     mediaCover: safeCover(source.media?.cover), nsfw: boolUnknown(source.contentAdvisory?.nsfw),
+    popularity: Number.isSafeInteger(source.popularity) && source.popularity >= 0 ? source.popularity : null,
     editorialRating: typeof source.rating === "number" && Number.isFinite(source.rating) && source.rating >= 0 && source.rating <= 10 ? source.rating : null,
     editorialStatus: status(source.editorial?.status), qualityFlags: strings(source.editorial?.qualityFlags),
     indexPolicy: source.seo?.indexPolicy === "noindex" ? "noindex" : "auto",
@@ -181,7 +182,7 @@ export function normalizeCatalog(registry, list, source = {}) {
 }
 export function sortedGames(games, locale) {
   const collator = new Intl.Collator(locale, { sensitivity: "base", numeric: true });
-  return [...games].sort((a, b) => (b.editorialRating ?? -1) - (a.editorialRating ?? -1) || collator.compare(a.titleByLocale[locale], b.titleByLocale[locale]) || a.slug.localeCompare(b.slug));
+  return [...games].sort((a, b) => (b.popularity ?? -1) - (a.popularity ?? -1) || collator.compare(a.titleByLocale[locale], b.titleByLocale[locale]) || a.slug.localeCompare(b.slug));
 }
 export function filterGames(games, kind, value) {
   return games.filter((g) => kind === "tags" ? g.genres.includes(value) || g.themes.includes(value) : g.languages.includes(value));
@@ -190,7 +191,10 @@ export function normalizeTerm(value) {
   return String(value || "").normalize("NFKC").toLocaleLowerCase().trim();
 }
 export function makeSearchIndex(games, locale) {
-  return sortedGames(games, locale).map((g) => ({
+  // Search relevance and its JSON index do not use popularity, editorial ratings or assessment notes.
+  const collator = new Intl.Collator(locale, { sensitivity: "base", numeric: true });
+  const byTitle = [...games].sort((a,b) => collator.compare(a.titleByLocale[locale], b.titleByLocale[locale]) || a.slug.localeCompare(b.slug));
+  return byTitle.map((g) => ({
     slug: g.slug, title: g.titleByLocale[locale], originalTitle: g.originalTitle,
     aliases: [...new Set([...Object.values(g.titleByLocale), ...g.aliases])],
     summary: g.introductions[locale].summary.slice(0, 280),

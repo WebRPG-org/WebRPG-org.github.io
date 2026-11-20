@@ -29,7 +29,7 @@ const featuredTags = ["rpg", "visual-novel", "horror", "adventure", "fantasy", "
 const moreTags = tags.filter((tag) => !featuredTags.includes(tag));
 const featuredLanguages = ["en", "ja", "zh-Hans", "pt", "ko"].filter((lang) => languages.includes(lang));
 const moreLanguages = languages.filter((lang) => !featuredLanguages.includes(lang));
-const ratingCount = games.filter((game) => game.editorialRating !== null).length;
+const popularityCount = games.filter((game) => game.popularity !== null).length;
 const nsfwLabel = (group: typeof nsfwGroups[number]) => group === "safe" ? copy.safe : group === "adult" ? copy.adult : copy.unknown;
 ---
 <BaseLayout locale={locale} route={route} title={title} description={description} indexable={indexable} jsonLd={jsonLd} root={root}>
@@ -52,9 +52,9 @@ const nsfwLabel = (group: typeof nsfwGroups[number]) => group === "safe" ? copy.
         </div>
       </div>
       <div class="catalog-sort-summary">
-        <span aria-hidden="true">★</span>
-        <span>{copy.sortRating}</span>
-        <span class="catalog-rated-count">{ratingCount} {copy.editorialScore}</span>
+        <span aria-hidden="true">↗</span>
+        <span>{copy.sortPopularity}</span>
+        <span class="catalog-rated-count">{popularityCount} {copy.popularityRecords}</span>
       </div>
       <nav class="content-rating-nav" aria-label={copy.nsfwFilter}>
         <span class="content-rating-title">{copy.nsfwFilter}</span>

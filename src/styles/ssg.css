@@ -419,3 +419,32 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   .hero-band { padding: 10px 12px; gap: 10px; }
   .game-card .game-actions .action-button { font-size: .78rem; }
 }
+
+
+/* Keep each row's actions pinned to the same bottom edge, regardless of copy/tag length. */
+.catalog-grid { align-items: stretch; }
+.catalog-grid .game-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0;
+  gap: 0;
+}
+.catalog-grid .game-card .game-content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.catalog-grid .game-card .cover-frame { flex: 0 0 auto; }
+.catalog-grid .game-card .game-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+.catalog-grid .game-card .game-actions {
+  margin-top: auto;
+  flex: 0 0 auto;
+}
