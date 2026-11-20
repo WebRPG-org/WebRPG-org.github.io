@@ -173,7 +173,10 @@ try {
     const ordered=[...gameCatalog.games].sort((a,b)=>(b.popularity??-1)-(a.popularity??-1)||collator.compare(a.titleByLocale["zh-Hans"],b.titleByLocale["zh-Hans"])||a.slug.localeCompare(b.slug));
     const links=await page.locator(".game-card .game-title a").evaluateAll(nodes=>nodes.map(el=>el.getAttribute("href")));
     assert.deepEqual(links,ordered.slice(0,36).map(game=>"/zh-Hans/game/"+game.slug+"/"),"Directory order must be popularity first");
-    assert((await page.locator(".catalog-sort-summary").innerText()).includes("流行度"));
+    assert((await page.locator(".catalog-description").innerText()).includes("流行度"));
+    assert.equal(await page.locator(".catalog-browse-button").count(),3);
+    assert.equal(await page.locator("#catalog-browse-types").isChecked(),true);
+    assert((await page.locator(".catalog-sort-summary").evaluate(el=>getComputedStyle(el).borderTopWidth))==="2px","Original separator must remain");
     assert.equal(gameCatalog.games.filter(game=>game.popularity!==null).length,414);
     const ratedVisible=ordered.slice(0,36).filter(game=>game.editorialRating!==null).length;
     assert.equal(await page.locator(".game-card .game-rating").count(),ratedVisible,"Editorial ratings remain optional display badges");
@@ -192,6 +195,8 @@ try {
     assert.equal(buttonBounds.length,2);
     assert(buttonBounds[0].right<buttonBounds[1].left);
     assert(Math.abs(buttonBounds[0].width-buttonBounds[1].width)<2);
+    await page.locator('label[for="catalog-browse-age"]').click();
+    assert(await page.locator('a[href="/zh-Hans/nsfw/adult/"]').first().isVisible());
     await page.locator('a[href="/zh-Hans/nsfw/adult/"]').first().click();
     await page.waitForLoadState("domcontentloaded");
     assert.equal(new URL(page.url()).pathname,"/zh-Hans/nsfw/adult/");
@@ -238,8 +243,11 @@ try {
     assert.equal(res.status(),200);
     assert(await p.locator('.game-card a[href^="/en/game/"]').count()>=36);
     assert(await p.locator('.pager a[href="/en/page/2/"]').count()>0);
-    await p.locator(".catalog-directory > summary").click();
     assert(await p.locator('a[href="/en/tags/horror/"]').first().isVisible());
+    await p.locator('label[for="catalog-browse-languages"]').click();
+    assert(await p.locator('a[href="/en/languages/ja/"]').first().isVisible());
+    await p.locator('label[for="catalog-browse-age"]').click();
+    assert(await p.locator('a[href="/en/nsfw/adult/"]').first().isVisible());
     await p.locator('.language-switch a[href="/ja/"]').click();
     assert.equal(new URL(p.url()).pathname,"/ja/");
     res=await p.goto(http("/en/game/" + sampleGame.slug + "/"),{waitUntil:"domcontentloaded"});

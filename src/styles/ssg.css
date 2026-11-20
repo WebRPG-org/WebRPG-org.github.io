@@ -19,10 +19,10 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .catalog-description { color: #f5d7a1; line-height: 1.65; margin: 0 0 10px; }
 .catalog-heading-row { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 10px; margin: 18px 0 20px; color: #fff0c8; }
 .catalog-directory { margin: 14px 0 10px; }
-.catalog-directory > summary { display: inline-flex; cursor: pointer; border: 2px solid #24160d; padding: 8px 12px; background: #fff0c8; color: #24160d; box-shadow: 3px 3px 0 #24160d; font-size: .87rem; }
+.catalog-directory > summary, .catalog-browse-button { display: inline-flex; cursor: pointer; border: 2px solid #24160d; padding: 8px 12px; background: #fff0c8; color: #24160d; box-shadow: 3px 3px 0 #24160d; font-size: .87rem; }
 .catalog-directory > summary::-webkit-details-marker { display: none; }
-.catalog-directory > summary::after { content: " ▾"; margin-left: 8px; }
-.catalog-directory[open] > summary::after { content: " ▴"; }
+.catalog-directory > summary::after, .catalog-browse-button::after { content: " ▾"; margin-left: 8px; }
+.catalog-directory[open] > summary::after, .catalog-browse-input:checked + .catalog-browse-button::after { content: " ▴"; }
 .catalog-directory-body { margin-top: 12px; }
 .category-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-top: 10px; }
 .category-nav a, .taxonomy-pill { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; background: #fff0c8; border: 2px solid #24160d; color: #24160d; font-size: 0.8rem; }
@@ -215,7 +215,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .rating-filter-chip.rating-filter-active { background: #2f7b63; color: #fff4d8; }
 .rating-filter-chip.rating-filter-active small { color: #fff4d8; }
 .catalog-intro-card .catalog-directory { margin: 18px 0 0; }
-.catalog-intro-card .catalog-directory > summary { background: #e8cf99; }
+.catalog-intro-card .catalog-directory > summary, .catalog-intro-card .catalog-browse-button { background: #e8cf99; }
 .catalog-intro-card .catalog-directory-body {
   padding-top: 6px;
   border-top: 1px solid #ddbf87;
@@ -414,7 +414,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   .content-rating-title { flex: 0 0 auto; margin: 0 4px 0 0; font-size: .73rem; white-space: nowrap; }
   .rating-filter-chip { flex: 0 0 auto; min-height: 31px; padding: 4px 7px; font-size: .7rem; white-space: nowrap; box-shadow: 2px 2px 0 #24160d; }
   .catalog-intro-card .catalog-directory { margin-top: 9px; }
-  .catalog-intro-card .catalog-directory > summary { padding: 6px 9px; font-size: .74rem; box-shadow: 2px 2px 0 #24160d; }
+  .catalog-intro-card .catalog-directory > summary, .catalog-intro-card .catalog-browse-button { padding: 6px 9px; font-size: .74rem; box-shadow: 2px 2px 0 #24160d; }
   .catalog-heading-row { margin: 16px 0 14px; font-size: .77rem; }
   .hero-band { padding: 10px 12px; gap: 10px; }
   .game-card .game-actions .action-button { font-size: .78rem; }
@@ -447,4 +447,51 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .catalog-grid .game-card .game-actions {
   margin-top: auto;
   flex: 0 0 auto;
+}
+
+/* Three controls reuse the original catalog disclosure button style. Only the
+   visible option group switches; the heading card and both dividers are unchanged. */
+.catalog-browse {
+  display: grid;
+  grid-template-columns: repeat(3, max-content) minmax(0, 1fr);
+  column-gap: 9px;
+}
+.catalog-browse-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.catalog-browse-button {
+  grid-row: 1;
+  white-space: nowrap;
+  user-select: none;
+}
+.catalog-browse-input:focus-visible + .catalog-browse-button {
+  outline: 3px solid #35ae9b;
+  outline-offset: 3px;
+}
+.catalog-browse-panel {
+  display: none;
+  grid-row: 2;
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+#catalog-browse-types:checked ~ .catalog-browse-panel--types,
+#catalog-browse-languages:checked ~ .catalog-browse-panel--languages,
+#catalog-browse-age:checked ~ .catalog-browse-panel--age { display: block; }
+@media (max-width: 760px) {
+  .catalog-browse { column-gap: 7px; }
+}
+
+@media (max-width: 350px) {
+  .catalog-browse { grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 5px; }
+  .catalog-browse-button {
+    justify-content: center;
+    padding-inline: 4px;
+    font-size: .7rem;
+    white-space: normal;
+    text-align: center;
+  }
+  .catalog-browse-button::after { margin-left: 4px; }
 }
