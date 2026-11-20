@@ -25,10 +25,6 @@ const canonical = absolute(routeUrl(locale, route));
 const crumb: {title:string; href:string}[] = [{title: copy.all, href: "/" + locale + "/"}];
 if (route.kind !== "home" && route.kind !== "page") crumb.push({title, href: routeUrl(locale, {...route, page: 1})});
 const jsonLd = collectionSchema(title, description, canonical, locale, visible, crumb);
-const featuredTags = ["rpg", "visual-novel", "horror", "adventure", "fantasy", "puzzle", "drama"].filter((tag) => tags.includes(tag));
-const moreTags = tags.filter((tag) => !featuredTags.includes(tag));
-const featuredLanguages = ["en", "ja", "zh-Hans", "pt", "ko"].filter((lang) => languages.includes(lang));
-const moreLanguages = languages.filter((lang) => !featuredLanguages.includes(lang));
 const nsfwLabel = (group: typeof nsfwGroups[number]) => group === "safe" ? copy.safe : group === "adult" ? copy.adult : copy.unknown;
 ---
 <BaseLayout locale={locale} route={route} title={title} description={description} indexable={indexable} jsonLd={jsonLd} root={root}>
@@ -44,7 +40,7 @@ const nsfwLabel = (group: typeof nsfwGroups[number]) => group === "safe" ? copy.
       <div class="catalog-intro-main">
         <div class="catalog-intro-heading">
           <h1 class="catalog-heading">{visualTitle}</h1>
-          <p class="catalog-description">{description} <span class="catalog-inline-sort">{copy.sortPopularity}</span></p>
+          <p class="catalog-description">{description} <span class="catalog-inline-sort"><span class="catalog-sort-icon" aria-hidden="true">↗</span> {copy.sortPopularity}</span></p>
         </div>
         <div class="catalog-intro-stat">
           <strong>{games.length}</strong><span>{copy.gameCount}</span>
@@ -61,24 +57,13 @@ const nsfwLabel = (group: typeof nsfwGroups[number]) => group === "safe" ? copy.
         <div class="catalog-directory-body catalog-browse-panel catalog-browse-panel--types">
           <nav class="category-nav" aria-label={copy.genres}>
             <a href={"/" + locale + "/"} aria-current={route.kind === "home" ? "page" : undefined}>{copy.all}</a>
-            {featuredTags.map((tag) => <a href={"/" + locale + "/tags/" + tag + "/"} aria-current={route.kind === "tags" && route.slug === tag ? "page" : undefined}>{taxonomyLabel(tag, locale)}</a>)}
-            {moreTags.length > 0 && <details class="category-more" open={route.kind === "tags" && !!route.slug && moreTags.includes(route.slug)}>
-              <summary>{copy.moreGenres} ({moreTags.length})</summary>
-              <div class="category-more-links">
-                {moreTags.map((tag) => <a href={"/" + locale + "/tags/" + tag + "/"} aria-current={route.kind === "tags" && route.slug === tag ? "page" : undefined}>{taxonomyLabel(tag, locale)}</a>)}
-              </div>
-            </details>}
+            {tags.map((tag) => <a href={"/" + locale + "/tags/" + tag + "/"} aria-current={route.kind === "tags" && route.slug === tag ? "page" : undefined}>{taxonomyLabel(tag, locale)}</a>)}
           </nav>
         </div>
         <div class="catalog-directory-body catalog-browse-panel catalog-browse-panel--languages">
           <nav class="category-nav" aria-label={copy.languages}>
-            {featuredLanguages.map((language) => <a href={"/" + locale + "/languages/" + language + "/"} aria-current={route.kind === "languages" && route.slug === language ? "page" : undefined}>{langLabel(language, locale)}</a>)}
-            {moreLanguages.length > 0 && <details class="category-more" open={route.kind === "languages" && !!route.slug && moreLanguages.includes(route.slug)}>
-              <summary>{copy.moreLanguages} ({moreLanguages.length})</summary>
-              <div class="category-more-links">
-                {moreLanguages.map((language) => <a href={"/" + locale + "/languages/" + language + "/"} aria-current={route.kind === "languages" && route.slug === language ? "page" : undefined}>{langLabel(language, locale)}</a>)}
-              </div>
-            </details>}
+            <a href={"/" + locale + "/"} aria-current={route.kind !== "languages" ? "page" : undefined}>{copy.allLanguages}</a>
+            {languages.map((language) => <a href={"/" + locale + "/languages/" + language + "/"} aria-current={route.kind === "languages" && route.slug === language ? "page" : undefined}>{langLabel(language, locale)}</a>)}
           </nav>
         </div>
         <div class="catalog-directory-body catalog-browse-panel catalog-browse-panel--age">

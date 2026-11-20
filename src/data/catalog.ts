@@ -39,3 +39,24 @@ export const nsfwGroups: NsfwGroup[] = ["safe", "adult", "unknown"];
 export const filterNsfw = (group: NsfwGroup): GameView[] => catalog.games.filter((g) => group === "safe" ? g.nsfw === false : group === "adult" ? g.nsfw === true : g.nsfw === "unknown");
 export const pageCount = (games: GameView[]) => Math.ceil(games.length / 36);
 export const pageSlice = (games: GameView[], page: number) => games.slice((page - 1) * 36, page * 36);
+
+
+/** Same-age, shared-tag recommendations. Deterministic and entirely based on existing Game fields. */
+export const similarGames = (game: GameView, locale: Locale, limit = 4): GameView[] => {
+  const genres = new Set(game.genres), themes = new Set(game.themes);
+  const collator = new Intl.Collator(locale,{sensitivity:"base",numeric:true});
+  return catalog.games
+    .filter((other) => other.slug !== game.slug && other.nsfw === game.nsfw)
+    .map((other) => ({
+      game: other,
+      genreMatches: other.genres.filter((tag) => genres.has(tag)).length,
+      themeMatches: other.themes.filter((tag) => themes.has(tag)).length,
+    }))
+    .filter((item) => item.genreMatches + item.themeMatches > 0)
+    .sort((a,b) =>
+      (b.genreMatches * 4 + b.themeMatches * 2) - (a.genreMatches * 4 + a.themeMatches * 2) ||
+      (b.game.popularity ?? -1) - (a.game.popularity ?? -1) ||
+      collator.compare(a.game.titleByLocale[locale],b.game.titleByLocale[locale]) ||
+      a.game.slug.localeCompare(b.game.slug)
+    ).slice(0,limit).map((item) => item.game);
+};

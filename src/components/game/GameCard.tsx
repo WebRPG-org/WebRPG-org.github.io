@@ -35,8 +35,11 @@ export function GameCard({ game, locale }: { game: GameView; locale: Locale }) {
         </div>
         <div className="game-actions">
           <Button asChild className="action-button"><a href={href}>{copy.details}</a></Button>
-          {play ? <Button asChild variant="secondary" className="action-button"><a href={play.playUrl} target="_blank" rel="noopener noreferrer">{copy.play}</a></Button>
-            : <Button asChild variant="secondary" className="action-button"><a href={href}>{copy.versions}</a></Button>}
+          {game.instances.length > 1
+            ? <Button asChild variant="secondary" className="action-button"><a href={href + "#versions"}>{copy.chooseVersion}</a></Button>
+            : play
+              ? <Button asChild variant="secondary" className="action-button"><a href={play.playUrl} target="_blank" rel="noopener noreferrer">{copy.play}</a></Button>
+              : <Button asChild variant="secondary" className="action-button"><a href={href + "#versions"}>{copy.versions}</a></Button>}
         </div>
       </div>
     </CardContent>

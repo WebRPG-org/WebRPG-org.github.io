@@ -41,6 +41,15 @@ const currentPath = root ? "/" : routeUrl(locale, route);
     <link rel="icon" type="image/png" href="/assets/logo.png" />
     <link rel="apple-touch-icon" href="/assets/logo.png" />
     <link rel="preload" href="/fonts/zpix.ttf" as="font" type="font/ttf" crossorigin />
+    <!-- Critical catalog disclosure CSS stays inline to prevent all three panels flashing during a dev refresh. -->
+    <style is:inline>
+      .catalog-browse-input{position:absolute;width:1px;height:1px;opacity:0}
+      .catalog-browse-panel{display:none}
+      #catalog-browse-types:checked~.catalog-browse-panel--types,
+      #catalog-browse-languages:checked~.catalog-browse-panel--languages,
+      #catalog-browse-age:checked~.catalog-browse-panel--age{display:block}
+      .catalog-browse-button{display:inline-flex;cursor:pointer;border:2px solid #24160d;padding:8px 12px;background:#e8cf99;color:#24160d;box-shadow:3px 3px 0 #24160d}
+    </style>
     <script type="application/ld+json" set:html={json} />
     <script defer src="https://insight.ravelloh.com/script.js?siteId=5ace6623-f51b-4571-8f60-e0473ea3317b"></script>
   </head>

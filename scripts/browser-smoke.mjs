@@ -65,7 +65,7 @@ try {
     const detail=await page.goto(http("/ja/game/" + sampleGame.slug + "/"),{waitUntil:"domcontentloaded"});
     assert.equal(detail.status(),200);
     assert.equal(await page.locator('html').getAttribute('lang'),"ja");
-    assert(await page.locator(".instance-card a[href]").evaluateAll((nodes, url) => nodes.some((element) => element.getAttribute("href") === url), sampleRunUrl));
+    assert(await page.locator(".detail-play-link[href]").evaluateAll((nodes, url) => nodes.some((element) => element.getAttribute("href") === url), sampleRunUrl));
     assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'),sampleGame.indexable.ja ? "index,follow" : "noindex,follow");
     assert.equal(await page.locator('.language-switch a[data-webrpg-language="en"]').getAttribute('href'),"/en/game/" + sampleGame.slug + "/");
     await page.screenshot({path:join(images,"desktop-detail-ja.png"),fullPage:false});
@@ -114,9 +114,17 @@ try {
     const text=await page.locator(".result-count").innerText();
     assert(text.match(/\d+/),text);
     const safeCount=Number(text.match(/\d+/)[0]);
-    await page.locator('.search-filters input[type="checkbox"]').check();
+    const checkbox=page.locator('.search-filters input[type="checkbox"]');
+    assert(await checkbox.isChecked(),"Search should include adult/unrated by default");
+    const checkedStyles=await checkbox.evaluate((el)=>({bg:getComputedStyle(el).backgroundColor,border:getComputedStyle(el).borderTopWidth}));
+    assert.equal(checkedStyles.border,"2px");
+    assert(checkedStyles.bg.includes("47, 123, 99"),JSON.stringify(checkedStyles));
+    await checkbox.uncheck();
+    const filtered=Number((await page.locator(".result-count").innerText()).match(/\d+/)[0]);
+    assert(filtered<=safeCount);
+    await checkbox.check();
     const widened=Number((await page.locator(".result-count").innerText()).match(/\d+/)[0]);
-    assert(widened>=safeCount);
+    assert.equal(widened,safeCount);
     await page.locator(".search-head button").click();
   });
   await check("Search has reachable results beyond first 60 and never hijacks select or IME Enter", async()=>{
@@ -177,7 +185,7 @@ try {
     assert.equal(await page.locator(".catalog-browse-button").count(),3);
     assert.equal(await page.locator("#catalog-browse-types").isChecked(),true);
     assert((await page.locator(".catalog-sort-summary").evaluate(el=>getComputedStyle(el).borderTopWidth))==="2px","Original separator must remain");
-    assert.equal(gameCatalog.games.filter(game=>game.popularity!==null).length,414);
+    assert.equal(gameCatalog.games.filter(game=>game.popularity!==null).length,gameCatalog.games.length);
     const ratedVisible=ordered.slice(0,36).filter(game=>game.editorialRating!==null).length;
     assert.equal(await page.locator(".game-card .game-rating").count(),ratedVisible,"Editorial ratings remain optional display badges");
     const bottoms=await page.locator(".game-card").evaluateAll(cards=>cards.slice(0,4).map(card=>{
@@ -207,16 +215,67 @@ try {
     await page.locator('.pager a[href="/zh-Hans/nsfw/adult/page/2/"]').first().click();
     await page.waitForLoadState("domcontentloaded");
     assert.equal(new URL(page.url()).pathname,"/zh-Hans/nsfw/adult/page/2/");
-    assert.equal(await page.locator(".game-card").count(),7);
+    assert.equal(await page.locator(".game-card").count(),Math.min(36, gameCatalog.games.filter(g=>g.nsfw===true).length-36));
     await page.goto(http("/zh-Hans/nsfw/unknown/"),{waitUntil:"domcontentloaded"});
-    assert.equal(await page.locator(".game-card").count(),2);
+    assert.equal(await page.locator(".game-card").count(),gameCatalog.games.filter(g=>g.nsfw==="unknown").length);
     await page.goto(http("/zh-Hans/game/" + sampleGame.slug + "/"),{waitUntil:"domcontentloaded"});
     const detail=page.locator(".detail-card");
     assert(await detail.locator("h1").isVisible());
     assert(await detail.locator(".detail-facts").isVisible());
     assert.equal(await detail.locator(".instance-actions .instance-source").count(),0);
+    assert.equal(await detail.locator(".detail-versions").count(),1,"Playable versions section must remain visible");
+    assert.equal(await detail.locator(".instance-card").count(),sampleGame.instances.length);
+    assert.equal(await detail.locator(".detail-jump-link").count(),0,"Former redundant versions jump button must stay removed");
+    assert.equal(await detail.locator(".detail-cover-home").getAttribute("href"),"/zh-Hans/");
     assert(await detail.locator(".detail-source-list a").count()>0);
-    assert(await detail.locator(".instance-play").count()>=1);
+    assert(await detail.locator(".detail-play-link").count()>=1);
+    const homeAboveCover=await detail.locator(".detail-cover-column").evaluate(el=>{const a=el.querySelector(".detail-cover-home").getBoundingClientRect(),cover=el.querySelector(".detail-cover").getBoundingClientRect();return a.bottom<cover.top;});
+    assert(homeAboveCover,"Home button must be above, never overlaying cover");
+    assert(await page.locator(".detail-similar .game-card").count()>0);
+  });
+  await check("All genres and languages are exposed; multi-version cards jump to full version list",async()=>{
+    await page.goto(http("/zh-Hans/"),{waitUntil:"domcontentloaded"});
+    const allTags=new Set(gameCatalog.games.flatMap(g=>[...g.genres,...g.themes]));
+    const allLanguages=new Set(gameCatalog.games.flatMap(g=>g.languages));
+    assert.equal(await page.locator(".catalog-browse-panel--types .category-more").count(),0);
+    assert.equal(await page.locator(".catalog-browse-panel--types .category-nav > a").count(),allTags.size+1);
+    await page.locator('label[for="catalog-browse-languages"]').click();
+    assert.equal(await page.locator(".catalog-browse-panel--languages .category-more").count(),0);
+    assert.equal(await page.locator(".catalog-browse-panel--languages .category-nav > a").count(),allLanguages.size+1);
+    assert.equal((await page.locator('.catalog-browse-panel--languages a[href="/zh-Hans/"]').innerText()).trim(),"全部语言");
+    const collator=new Intl.Collator("zh-Hans",{sensitivity:"base",numeric:true});
+    const ordered=[...gameCatalog.games].sort((a,b)=>(b.popularity??-1)-(a.popularity??-1)||
+      collator.compare(a.titleByLocale["zh-Hans"],b.titleByLocale["zh-Hans"])||a.slug.localeCompare(b.slug));
+    const multi=ordered.find(g=>g.instances.length>1&&g.instances.some(i=>i.available===true&&!i.needsReview));
+    assert(multi,"Latest source must include multi-version game");
+    const idx=ordered.findIndex(g=>g.slug===multi.slug),number=Math.floor(idx/36)+1;
+    await page.goto(http(number===1?"/zh-Hans/":"/zh-Hans/page/"+number+"/"),{waitUntil:"domcontentloaded"});
+    const card=page.locator(".game-card").filter({has:page.locator('.game-title a[href="/zh-Hans/game/'+multi.slug+'/"]')}).first();
+    assert.equal(await card.count(),1);
+    const select=card.locator(".game-actions a").last();
+    assert.equal((await select.innerText()).trim(),"选择版本");
+    assert.equal(await select.getAttribute("href"),"/zh-Hans/game/"+multi.slug+"/#versions");
+    await select.click();
+    await page.waitForLoadState("domcontentloaded");
+    assert.equal(new URL(page.url()).hash,"#versions");
+    assert.equal(await page.locator("#versions .instance-card").count(),multi.instances.length);
+    assert.equal(await page.locator("#versions h2").innerText(),"可游玩的版本");
+    assert.equal(await page.locator(".detail-jump-link").count(),0);
+    assert(await page.locator("#versions .instance-play").count()>0);
+    assert(await page.locator(".detail-cover-home").evaluate(el=>el.getBoundingClientRect().bottom <
+      document.querySelector(".detail-cover").getBoundingClientRect().top));
+    const suggestedLinks=await page.locator(".detail-similar .game-card .game-title a").evaluateAll(nodes=>nodes.map(el=>el.getAttribute("href")));
+    for(const href of suggestedLinks){
+      const recommended=gameCatalog.games.find(g=>href==="/zh-Hans/game/"+g.slug+"/");
+      assert(recommended&&recommended.slug!==multi.slug&&recommended.nsfw===multi.nsfw);
+      assert([...multi.genres,...multi.themes].some(t=>recommended.genres.includes(t)||recommended.themes.includes(t)));
+    }
+    await page.goto(http("/zh-Hans/game/ambrosia/"),{waitUntil:"domcontentloaded"});
+    assert(await page.locator(".detail-source-list a").count()>0);
+    assert(await page.locator(".detail-external-list a").count()>0);
+    const sources=await page.locator(".detail-source-list a").evaluateAll(nodes=>nodes.map(el=>el.getAttribute("href")));
+    const extras=await page.locator(".detail-external-list a").evaluateAll(nodes=>nodes.map(el=>el.getAttribute("href")));
+    assert(extras.every(url=>!sources.includes(url)),"Source and related external links must not duplicate");
   });
   await check("Mobile 320/390px pages avoid horizontal overflow and keep readable nav",async()=>{
     for(const width of [320,390]){
@@ -229,7 +288,8 @@ try {
         assert(await page.locator("main h1").isVisible());
         if(width===390&&path==="/en/") {
           const firstCardTop = await page.locator(".game-card").first().evaluate((element)=>element.getBoundingClientRect().top);
-          assert(firstCardTop < 740,"First game card should begin within initial mobile viewport: "+firstCardTop);
+          // The user explicitly wants every genre rendered in the open panel, even if it pushes cards below the fold.
+          assert(firstCardTop > 0 && firstCardTop < 1100,"All expanded genre controls should remain compact and reachable: "+firstCardTop);
           await page.screenshot({path:join(images,"mobile-en-390.png"),fullPage:false});
         }
         if(width===320&&path.includes("narcissu")) await page.screenshot({path:join(images,"mobile-detail-320.png"),fullPage:false});

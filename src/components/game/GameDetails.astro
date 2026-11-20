@@ -2,8 +2,9 @@
 import type { GameView } from "../../data/catalog";
 import type { Locale } from "../../i18n/ui";
 import { UI, taxonomyLabel, langLabel } from "../../i18n/ui";
-import { gameBySlug } from "../../data/catalog";
+import { gameBySlug, similarGames } from "../../data/catalog";
 import { gameDescription, publishedCopy, relationLabel } from "../../data/game-description";
+import { GameCard } from "./GameCard";
 interface Props { game: GameView; locale: Locale }
 const { game, locale } = Astro.props;
 const copy = UI[locale];
@@ -16,14 +17,20 @@ const tags = [...new Set([...game.genres, ...game.themes])];
 const related = game.relations
   .map((relation) => ({ ...relation, game: gameBySlug.get(relation.slug) }))
   .filter((item): item is { slug: string; type: string; game: GameView } => !!item.game);
-const sources = Array.from(new Map([
-  ...game.externalLinks.map((link) => ({ url: link.url, label: link.label || link.type || link.url })),
-  ...game.instances.filter((instance) => !!instance.sourceRepoUrl).map((instance) => ({
-    url: instance.sourceRepoUrl as string,
-    label: "GitHub · " + (instance.forkName || instance.title),
-  })),
-].map((link) => [link.url, link])).values());
+const recommended = similarGames(game, locale);
+const repoLinks = game.instances
+  .filter((item) => !!item.sourceRepoUrl)
+  .map((item) => ({url: item.sourceRepoUrl as string, label: "GitHub · " + (item.forkName || item.title)}));
+const sourceLinks = [...new Map([...repoLinks, ...game.externalLinks
+  .filter((link) => link.type === "source")
+  .map((link) => ({url:link.url,label:link.label || link.url}))]
+  .map((link) => [link.url,link])).values()];
+const sourceUrls = new Set(sourceLinks.map((link)=>link.url));
+const otherLinks = [...new Map(game.externalLinks
+  .filter((link) => link.type !== "source" && !sourceUrls.has(link.url))
+  .map((link) => [link.url, {url:link.url,label:link.label || link.type || link.url}])).values()];
 const playable = game.instances.filter((instance) => instance.available === true && !instance.needsReview);
+const primary = playable[0] || game.instances[0];
 const availableLanguageCodes = [...new Set(game.languages)];
 ---
 <main class="catalog-shell detail-shell">
@@ -31,12 +38,12 @@ const availableLanguageCodes = [...new Set(game.languages)];
   <article class="detail-card">
     <header class="detail-hero">
       <div class="detail-cover-column">
+        <a class="detail-cover-home" href={"/" + locale + "/"}><span aria-hidden="true">←</span> {copy.returnHome}</a>
         <div class="detail-cover cover-frame">
           <img class="cover-base" src="/assets/empty-book.jpg" width="640" height="400" alt="" />
           {game.coverUrl && <img class="cover-image is-loaded" src={game.coverUrl} width="640" height="400" alt={game.titleByLocale[locale]} decoding="async" />}
         </div>
         <div class="detail-cover-caption">
-          <span>{game.instances.length} {copy.editions}</span>
           {game.editorialRating !== null ? <span class="detail-score" title={copy.ratingLegend}>★ {game.editorialRating}<small>/10</small> · {copy.editorialScore}</span> :
             <span class="detail-unrated">{copy.ratingMissing}</span>}
         </div>
@@ -62,13 +69,15 @@ const availableLanguageCodes = [...new Set(game.languages)];
             <dd>{game.publishers.map((credit, index) => <span>{index > 0 ? "、" : ""}{credit.url ? <a href={credit.url} target="_blank" rel="noopener noreferrer">{credit.name}</a> : credit.name}</span>)}</dd>
           </>}
           {game.releaseDate && <><dt>{copy.release}</dt><dd><time datetime={game.releaseDate}>{game.releaseDate}</time></dd></>}
+          {primary?.engine && <><dt>{copy.engine}</dt><dd>{primary.engine}</dd></>}
           {availableLanguageCodes.length > 0 && <><dt>{copy.languages}</dt><dd class="detail-language-list">
             {availableLanguageCodes.map((lang) => <a href={"/" + locale + "/languages/" + lang + "/"}>{langLabel(lang, locale)}</a>)}
           </dd></>}
         </dl>
         <div class="detail-hero-actions">
-          <a class="detail-jump-link pixel__button pixel-secondary__button pixel-font" href="#versions">{copy.versions} <span aria-hidden="true">↓</span></a>
-          {playable.length > 0 && <span class="detail-ready-count">{playable.length} / {game.instances.length}</span>}
+          {primary && primary.available === true && !primary.needsReview ?
+            <a class="detail-play-link pixel__button pixel-default__button pixel-font" href={primary.playUrl} target="_blank" rel="noopener noreferrer">{copy.play} <span aria-hidden="true">↗</span></a> :
+            <span class="instance-unavailable">{copy.unavailable}</span>}
         </div>
       </div>
     </header>
@@ -91,8 +100,8 @@ const availableLanguageCodes = [...new Set(game.languages)];
           </div>
           <div class="instance-actions">
             {item.available === true && !item.needsReview ?
-              <a class="instance-play pixel__button pixel-default__button pixel-font" href={item.playUrl} target="_blank" rel="noopener noreferrer">{copy.play} <span aria-hidden="true">↗</span></a>
-              : <span class="instance-unavailable">{copy.unavailable}</span>}
+              <a class="instance-play pixel__button pixel-default__button pixel-font" href={item.playUrl} target="_blank" rel="noopener noreferrer">{copy.play} <span aria-hidden="true">↗</span></a> :
+              <span class="instance-unavailable">{copy.unavailable}</span>}
           </div>
         </div>)}
       </div>
@@ -107,10 +116,17 @@ const availableLanguageCodes = [...new Set(game.languages)];
       </div>
     </section>}
 
-    {sources.length > 0 && <section class="detail-section">
+    {sourceLinks.length > 0 && <section class="detail-section">
       <div class="detail-section-heading"><h2>{copy.source}</h2></div>
       <ul class="detail-source-list">
-        {sources.map((link) => <li><a href={link.url} rel="noopener noreferrer" target="_blank">{link.label} <span aria-hidden="true">↗</span></a></li>)}
+        {sourceLinks.map((link) => <li><a href={link.url} rel="noopener noreferrer" target="_blank">{link.label} <span aria-hidden="true">↗</span></a></li>)}
+      </ul>
+    </section>}
+
+    {otherLinks.length > 0 && <section class="detail-section">
+      <div class="detail-section-heading"><h2>{copy.externalLinks}</h2></div>
+      <ul class="detail-external-list">
+        {otherLinks.map((link) => <li><a href={link.url} rel="noopener noreferrer" target="_blank">{link.label} <span aria-hidden="true">↗</span></a></li>)}
       </ul>
     </section>}
 
@@ -121,4 +137,11 @@ const availableLanguageCodes = [...new Set(game.languages)];
       </ul>
     </section>}
   </article>
+  {recommended.length > 0 && <section class="detail-similar" aria-label={copy.similarGames}>
+    <h2>{copy.similarGames}</h2>
+    <p>{copy.similarExplanation}</p>
+    <div class="catalog-grid detail-similar-grid">
+      {recommended.map((other) => <GameCard game={other} locale={locale} />)}
+    </div>
+  </section>}
 </main>

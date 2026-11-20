@@ -17,7 +17,7 @@ export default function SearchDialog({ locale, indexUrl, availableLanguages, ava
   const [query, setQuery] = React.useState("");
   const [language, setLanguage] = React.useState("");
   const [tag, setTag] = React.useState("");
-  const [includeUnrated, setIncludeUnrated] = React.useState(false);
+  const [includeUnrated, setIncludeUnrated] = React.useState(true);
   const [active, setActive] = React.useState(0);
   const [visibleCount, setVisibleCount] = React.useState(60);
   const resetResults = () => { setActive(0); setVisibleCount(60); };
@@ -107,7 +107,7 @@ export default function SearchDialog({ locale, indexUrl, availableLanguages, ava
             <option value="">{copy.any}</option>
             {availableLanguages.map((item) => <option value={item} key={item}>{langLabel(item, locale)}</option>)}
           </select></label>
-          <label><input type="checkbox" checked={includeUnrated} onChange={(e) => { setIncludeUnrated(e.target.checked); resetResults(); }}/>{copy.includeUnrated}</label>
+          <label className="search-safety-toggle"><input className="pixel-checkbox" type="checkbox" checked={includeUnrated} onChange={(e) => { setIncludeUnrated(e.target.checked); resetResults(); }}/>{copy.includeUnrated}</label>
         </div>
         <div className="search-results" role="listbox" aria-label={copy.search}>
           {!index && !error ? <p>{copy.searchHint}…</p> : null}
