@@ -15,7 +15,7 @@ Source of truth: eight complete Recalloom docs under /Projects/WebRPG/Plans/SSG-
 - Index SHA: bef40743be736b339f2f9bf3f0c9772f90e94de8.
 - Upstream registry version / per-Game adapter: 1 / 1.
 - Works: 414; internal instance references: 451; multi-instance works: 32; external production instances: 0; unknown NSFW: 2; source-changed review warnings: 1.
-- All 414 editorial statuses are draft; 0 production language Game descriptions are initially eligible for indexing.
+- All 414 historical editorial statuses are draft; under the updated direct-publication policy, 1236 technically usable Game locale pages qualify for indexing, while 6 remain noindex due to unavailable or changed-source instances. No migration of upstream status is required.
 - Search index count: 414 entries per locale; later entries are included in search, not only first 36 cards.
 - Run checks: npm run prepare:data; node --test tests/*.test.mjs; npm run typecheck.
 

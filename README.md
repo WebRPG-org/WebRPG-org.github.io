@@ -8,7 +8,7 @@ WebRPG organizes **games (works)**, not GitHub repositories. Each work has a loc
 - React 19 hydrates only the search/combined filters and optional browser-language suggestion. Static game cards are rendered via existing Pixelact React UI on the server without client hydration.
 - Original Zpix font, site background, images, warm Pixelact UI and CSS are preserved.
 - Data source: WebRPG-org/index, one exact Git Commit SHA for both games.json and list.json, loaded **at build time**, validated and joined by explicit per-Game schemaVersion adapter. Browser never downloads the full upstream JSON. Search uses smaller separate content-hashed locale JSON indexes.
-- Independent Game and localized editorial statuses decide indexability. Draft pages stay accessible as `noindex,follow`, never go into sitemap. Missing NSFW remains `unknown`; no popularity or invented user ratings are consumed.
+- Indexability is determined by explicit `seo.indexPolicy=noindex` and technically valid, available game instance URLs. Historical draft editorial statuses, description length/absence and adult/unrated classification do not prevent publication. Factual metadata is used when an introduction is missing; missing NSFW remains `unknown`. No popularity or invented user ratings are consumed.
 
 ## Project directories
 
