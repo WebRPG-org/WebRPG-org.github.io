@@ -1,21 +1,62 @@
-# React + TypeScript + Vite + shadcn/ui
+# WebRPG — Astro Static Game Directory
 
-This is a template for a new Vite project with React, TypeScript, and shadcn/ui.
+WebRPG organizes **games (works)**, not GitHub repositories. Each work has a localized details page and one or more playable versions. Site languages are `en`, `zh-Hans`, `ja`; a game can independently support Portuguese, Korean, Traditional Chinese and other playable languages.
 
-## Adding components
+## Architecture
 
-To add components to your app, run the following command:
+- Astro 7 SSG renders full static HTML: three homes, Game details, tags/themes, actual playable languages, 36-games/page pagination, canonical/hreflang, OG, structured data, sitemap and robots.
+- React 19 hydrates only the search/combined filters and optional browser-language suggestion. Static game cards are rendered via existing Pixelact React UI on the server without client hydration.
+- Original Zpix font, site background, images, warm Pixelact UI and CSS are preserved.
+- Data source: WebRPG-org/index, one exact Git Commit SHA for both games.json and list.json, loaded **at build time**, validated and joined by explicit per-Game schemaVersion adapter. Browser never downloads the full upstream JSON. Search uses smaller separate content-hashed locale JSON indexes.
+- Independent Game and localized editorial statuses decide indexability. Draft pages stay accessible as `noindex,follow`, never go into sitemap. Missing NSFW remains `unknown`; no popularity or invented user ratings are consumed.
 
-```bash
-npx shadcn@latest add button
-```
+## Project directories
 
-This will place the ui components in the `src/components` directory.
+    src/pages/             Astro homes, game details, taxonomies, pagination, sitemap, 404
+    src/layouts/           BaseLayout and CatalogLayout
+    src/components/game/   Pixelact server GameCard and Astro details
+    src/components/interactive/  search and language suggestion React Islands
+    src/components/layout/       header/footer
+    src/components/catalog/      static pagination
+    src/components/ui/pixelact-ui/  original UI library
+    src/data/              normalized build-time catalog
+    src/i18n/              three locale messages, route contracts
+    src/seo/               schema.org builders
+    src/styles/            responsive pixel-theme additions
+    scripts/               immutable source, schema validation, build, SEO and browser gates
+    tests/                 data/NSFW/external/search/language unit fixtures
+    docs/acceptance/       phased QA, screenshots, deployment and rollback notes
 
-## Using components
+## Development
 
-To use the components in your app, import them as follows:
+Node 24 is recommended.
 
-```tsx
-import { Button } from "@/components/ui/button"
-```
+    npm ci
+    npm run dev
+
+Each build resolves WebRPG-org/index main to a **40-character immutable SHA** and downloads both files from that exact revision. To reproduce a release, set INDEX_REF to that SHA before running npm run build. For example:
+
+    INDEX_REF=bef40743be736b339f2f9bf3f0c9772f90e94de8 npm run build
+
+In PowerShell: `$env:INDEX_REF = '<sha>'`, then `npm run build`. With `INDEX_OFFLINE=1`, the snapshot must already be cached with valid SHA256 provenance.
+
+Checks:
+
+    npm run lint            # ESLint
+    npm run typecheck       # Astro + TypeScript
+    npm test                # schema, game-instance integrity, NSFW, external fixture
+    npm run build           # Astro static build + all HTML/SEO/links/sitemap audit
+    npm run ci              # full static release gates
+    npm run test:browser    # real Edge/Chrome desktop, 320/390px mobile, no JS smoke
+
+Build report: `dist/build-manifest.json` with frontend and source commits, upstream file hashes, catalog hash, routes hash, schema adapters and noindex/sitemap totals. Screenshot evidence: `docs/acceptance/screenshots/`.
+
+## Public URL contract
+
+- `/` is the **full English homepage**, not a language selector or redirect. Its canonical is `https://webrpg.org/en/`; canonical locales are `/en/`, `/zh-Hans/`, `/ja/`.
+- Pages after page 1: `/<locale>/page/2/`; no duplicate `/page/1/`.
+- Works: `/<locale>/game/<gameSlug>/`.
+- Tags and playable languages: `/<locale>/tags/<tag>/` and `/<locale>/languages/<lang>/`. Category pagination uses an additional `page/<N>/` segment.
+- Existing independent GitHub Project Pages such as `https://webrpg.org/<forkName>/...` are **not moved, redirected or changed**. Original deep `pagesUrl` entries are preserved. Reserved-path collisions fail the build.
+
+CI workflow never deploys from a pull request. GitHub Pages deploy workflow runs only on main, manual approval, or a designated index-update dispatch, and must pass all release gates. Manual dispatch supports pinned frontend_ref and index_ref for rollback. See `docs/acceptance/deployment.md`. Production game assets/saves and actual Search Console canonical behavior require separate live acceptance; a static build cannot prove them.

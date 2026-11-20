@@ -4,6 +4,18 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      frontend_ref:
+        description: Frontend commit to build (rollback only; defaults to workflow commit)
+        required: false
+        type: string
+      index_ref:
+        description: WebRPG-org/index immutable 40-character commit SHA (optional)
+        required: false
+        type: string
+  repository_dispatch:
+    types: [index-updated]
 
 permissions:
   contents: read
@@ -18,30 +30,38 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout selected frontend revision
         uses: actions/checkout@v4
-
+        with:
+          ref: ${{ inputs.frontend_ref || github.sha }}
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: package-lock.json
-
       - name: Install dependencies
         run: npm ci
-
-      - name: Build
-        run: npm run build
-
+      - name: Validate snapshot, full catalog, HTML/SEO and legacy route reservation
+        env:
+          INDEX_REF: ${{ inputs.index_ref || github.event.client_payload.index_ref || '' }}
+          ASTRO_TELEMETRY_DISABLED: '1'
+        run: npm run ci
+      - name: Install Chrome for real browser checks
+        uses: browser-actions/setup-chrome@v2
+      - name: Run desktop, mobile, no-JavaScript and language recommendation checks
+        run: npm run test:browser
+      - name: Upload build manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: webrpg-build-manifest
+          path: dist/build-manifest.json
       - name: Configure Pages
         uses: actions/configure-pages@v5
-
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
-
   deploy:
     needs: build
     runs-on: ubuntu-latest
