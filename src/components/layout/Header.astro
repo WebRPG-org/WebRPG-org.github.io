@@ -1,0 +1,44 @@
+---
+import type { Locale } from "../../i18n/ui";
+import type { Route } from "../../i18n/routes";
+import { LOCALES, LABEL, UI } from "../../i18n/ui";
+import { safeRouteUrl } from "../../i18n/routes";
+interface Props { locale: Locale; route: Route }
+const { locale, route } = Astro.props;
+const copy = UI[locale];
+---
+<header class="hero-band">
+  <div class="brand-lockup">
+    <a href={"/" + locale + "/"} aria-label="WebRPG homepage">
+      <img class="brand-mark" src="/assets/logo.png" width="82" height="82" alt="" />
+    </a>
+    <div class="brand-text">
+      <div class="brand-title">Web RPG</div>
+      <p>{copy.tagline}</p>
+    </div>
+  </div>
+  <div class="hero-actions">
+    <nav class="language-switch" aria-label="Website language">
+      {LOCALES.map((item) => <a
+        href={safeRouteUrl(item, route)}
+        data-webrpg-language={item}
+        aria-current={locale === item ? "page" : undefined}
+        class:list={["pixel__button", "pixel-font", "language-button", "language-link", locale === item ? "pixel-default__button" : "pixel-secondary__button"]}
+        >{LABEL[item]}</a>)}
+    </nav>
+    <a class="pixel__button pixel-secondary__button pixel-font github-button github-link" href="https://github.com/WebRPG-org" rel="noopener noreferrer" target="_blank">
+      {copy.source} · GitHub
+    </a>
+  </div>
+</header>
+<script>
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    const link = target instanceof Element ? target.closest("[data-webrpg-language]") : null;
+    if (!link) return;
+    const locale = link.getAttribute("data-webrpg-language");
+    if (locale === "en" || locale === "ja" || locale === "zh-Hans") {
+      try { localStorage.setItem("webrpg:locale", locale); sessionStorage.setItem("webrpg:locale-dismissed", "1"); } catch { /* Privacy mode */ }
+    }
+  });
+</script>

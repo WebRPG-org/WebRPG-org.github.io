@@ -1,0 +1,32 @@
+---
+import type { Locale } from "../../i18n/ui";
+import type { Route } from "../../i18n/routes";
+import { routeUrl } from "../../i18n/routes";
+import { UI } from "../../i18n/ui";
+interface Props { locale: Locale; route: Route; page: number; total: number }
+const { locale, route, page, total } = Astro.props;
+const copy = UI[locale];
+const link = (n: number): string => {
+  if (route.kind === "home" || route.kind === "page") return routeUrl(locale, n === 1 ? {kind:"home"} : {kind:"page",page:n});
+  return routeUrl(locale, {...route,page:n});
+};
+const numberCount = Math.min(9,total);
+const first = Math.max(1, Math.min(page - 4, total - numberCount + 1));
+const numbers = [...new Set([1,total,...Array.from({length:numberCount},(_,i)=>first+i)])]
+  .filter((n)=>n>=1&&n<=total).sort((a,b)=>a-b);
+---
+{total > 1 && <nav class="pager" aria-label="Pagination">
+  <span class="pager-overview">{copy.page} {page} / {total}</span>
+  <div class="pager-controls">
+    {page > 1 && <a class="pager-control" href={link(page-1)} rel="prev"><span aria-hidden="true">← </span>{copy.previous}</a>}
+    <div class="pager-pages">
+      {numbers.map((n,i) => <>
+        {i>0 && n-numbers[i-1]>1 && <span class="pager-ellipsis" aria-hidden="true">…</span>}
+        {n===page
+          ? <span class="pager-number" aria-current="page" aria-label={copy.page+" "+n}>{n}</span>
+          : <a class="pager-number" href={link(n)} aria-label={copy.page+" "+n}>{n}</a>}
+      </>)}
+    </div>
+    {page < total && <a class="pager-control" href={link(page+1)} rel="next">{copy.next}<span aria-hidden="true"> →</span></a>}
+  </div>
+</nav>}

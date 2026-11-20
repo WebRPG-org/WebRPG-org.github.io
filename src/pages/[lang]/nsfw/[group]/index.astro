@@ -1,0 +1,16 @@
+---
+import CatalogLayout from "../../../../layouts/CatalogLayout.astro";
+import { LOCALES, UI, type Locale } from "../../../../i18n/ui";
+import { filterNsfw, nsfwGroups, type NsfwGroup } from "../../../../data/catalog";
+export function getStaticPaths() {
+  return LOCALES.flatMap((lang) => nsfwGroups.map((group) => ({params:{lang,group}})));
+}
+const locale=Astro.params.lang as Locale;
+const group=Astro.params.group as NsfwGroup;
+const games=filterNsfw(group);
+const copy=UI[locale];
+const title=copy.nsfwFilter+" — "+(group==="safe"?copy.safe:group==="adult"?copy.adult:copy.unknown);
+const description=title+" · "+games.length+" "+copy.gameCount+" · WebRPG";
+---
+<CatalogLayout locale={locale} games={games} route={{kind:"nsfw",slug:group,page:1}}
+  title={title} description={description} indexable={false} />

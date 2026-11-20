@@ -1,0 +1,46 @@
+name: WebRPG Astro CI
+on:
+  pull_request:
+  push:
+    branches-ignore:
+      - main
+  workflow_dispatch:
+    inputs:
+      index_ref:
+        description: Immutable WebRPG-org/index commit SHA (optional)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Run schema, TypeScript, ESLint, unit and SSG/SEO gates
+        env:
+          INDEX_REF: ${{ inputs.index_ref || '' }}
+          ASTRO_TELEMETRY_DISABLED: '1'
+        run: npm run ci
+      - name: Install Chrome for repeatable Playwright smoke tests
+        id: setup-chrome
+        uses: browser-actions/setup-chrome@v2
+      - name: Run real desktop, mobile and no-JavaScript browser checks
+        env:
+          BROWSER_PATH: ${{ steps.setup-chrome.outputs.chrome-path }}
+        run: npm run test:browser
+      - name: Upload build audit (never deploy from PR)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webrpg-build-audit
+          path: dist/build-manifest.json
+          if-no-files-found: warn

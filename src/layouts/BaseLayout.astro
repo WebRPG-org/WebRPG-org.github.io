@@ -1,0 +1,68 @@
+---
+import "../index.css";
+import "../styles/ssg.css";
+import type { Locale } from "../i18n/ui";
+import type { Route } from "../i18n/routes";
+import { routeUrl, routeExists, safeRouteUrl, urlAlternates } from "../i18n/routes";
+import { absolute } from "../seo/schema";
+import Header from "../components/layout/Header.astro";
+import Footer from "../components/layout/Footer.astro";
+import LanguageSuggestion from "../components/interactive/LanguageSuggestion";
+interface Props {
+  locale: Locale; route: Route; title: string; description: string; indexable: boolean;
+  ogImage?: string | null; jsonLd?: unknown; root?: boolean; notFound?: boolean;
+}
+const { locale, route, title, description, indexable, ogImage, jsonLd, root = false, notFound = false } = Astro.props;
+const canonical = absolute(routeUrl(locale, route));
+const alternates = urlAlternates(route, indexable);
+const fullTitle = title.includes("WebRPG") ? title : title + " | WebRPG";
+const ogLocale: Record<Locale, string> = { en: "en_US", "zh-Hans": "zh_CN", ja: "ja_JP" };
+const json = JSON.stringify(jsonLd ?? { "@context": "https://schema.org", "@type": "WebPage", name: fullTitle, ...(notFound ? {} : {url:canonical}) }).replace(/</g, "\\u003c");
+const currentPath = root ? "/" : routeUrl(locale, route);
+---
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#2c1c12" />
+    <meta name="description" content={description} />
+    <meta name="robots" content={indexable ? "index,follow" : "noindex,follow"} />
+    <title>{fullTitle}</title>
+    {!notFound && <link rel="canonical" href={canonical} />}
+    {Object.entries(alternates).map(([lang, href]) => <link rel="alternate" hreflang={lang} href={href} />)}
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    {!notFound && <meta property="og:url" content={canonical} />}
+    <meta property="og:locale" content={ogLocale[locale]} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+    <meta name="twitter:card" content={ogImage ? "summary_large_image" : "summary"} />
+    <link rel="icon" type="image/png" href="/assets/logo.png" />
+    <link rel="apple-touch-icon" href="/assets/logo.png" />
+    <link rel="preload" href="/fonts/zpix.ttf" as="font" type="font/ttf" crossorigin />
+    <!-- Critical catalog disclosure CSS stays inline to prevent all three panels flashing during a dev refresh. -->
+    <style is:inline>
+      .catalog-browse-input{position:absolute;width:1px;height:1px;opacity:0}
+      .catalog-browse-panel{display:none}
+      #catalog-browse-types:checked~.catalog-browse-panel--types,
+      #catalog-browse-languages:checked~.catalog-browse-panel--languages,
+      #catalog-browse-age:checked~.catalog-browse-panel--age{display:block}
+      .catalog-browse-button{display:inline-flex;cursor:pointer;border:2px solid #24160d;padding:8px 12px;background:#e8cf99;color:#24160d;box-shadow:3px 3px 0 #24160d}
+    </style>
+    <script type="application/ld+json" set:html={json} />
+    <script defer src="https://insight.ravelloh.com/script.js?siteId=5ace6623-f51b-4571-8f60-e0473ea3317b"></script>
+  </head>
+  <body>
+    <div class="site-shell">
+      <div class="site-scrim">
+        <Header locale={locale} route={route} />
+        <slot />
+        <Footer locale={locale} />
+      </div>
+    </div>
+    {!notFound && <LanguageSuggestion client:idle locale={locale} path={currentPath}
+      targets={{ en: safeRouteUrl("en", route), "zh-Hans": safeRouteUrl("zh-Hans", route), ja: safeRouteUrl("ja", route) }}
+      available={{ en: routeExists("en", route), "zh-Hans": routeExists("zh-Hans", route), ja: routeExists("ja", route) }} />}
+  </body>
+</html>

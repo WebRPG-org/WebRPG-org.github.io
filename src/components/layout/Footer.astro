@@ -1,0 +1,11 @@
+---
+import type { Locale } from "../../i18n/ui";
+import { UI } from "../../i18n/ui";
+interface Props { locale: Locale }
+const { locale } = Astro.props;
+---
+<footer class="site-footer">
+  <p>Made by <a href="https://ravelloh.com" rel="noopener noreferrer" target="_blank">RavelloH</a>.
+    {UI[locale].footer}
+  </p>
+</footer>

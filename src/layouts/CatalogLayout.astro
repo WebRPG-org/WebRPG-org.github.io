@@ -1,0 +1,88 @@
+---
+import BaseLayout from "./BaseLayout.astro";
+import { GameCard } from "../components/game/GameCard";
+import CatalogPagination from "../components/catalog/Pagination.astro";
+import SearchDialog from "../components/interactive/SearchDialog";
+import { UI, taxonomyLabel, langLabel } from "../i18n/ui";
+import { catalog, sortedGames, pageSlice, tags, languages, pageCount, filterNsfw, nsfwGroups, type GameView } from "../data/catalog";
+import { routeUrl, type Route } from "../i18n/routes";
+import { collectionSchema, absolute } from "../seo/schema";
+import type { Locale } from "../i18n/ui";
+interface Props {
+  locale: Locale; games?: GameView[]; route?: Route; page?: number;
+  title?: string; description?: string; root?: boolean; indexable?: boolean;
+}
+const { locale, games = catalog.games, route = {kind:"home"}, page = 1, root = false } = Astro.props;
+const copy = UI[locale];
+const title = Astro.props.title || copy.catalog;
+const visualTitle = route.kind === "page" ? copy.catalog : title;
+const description = Astro.props.description || copy.curated;
+const ordered = sortedGames(games, locale);
+const visible = pageSlice(ordered, page);
+const totalPages = pageCount(games);
+const indexable = Astro.props.indexable ?? (games.length > 0 && (route.kind !== "tags" || games.length >= 2));
+const canonical = absolute(routeUrl(locale, route));
+const crumb: {title:string; href:string}[] = [{title: copy.all, href: "/" + locale + "/"}];
+if (route.kind !== "home" && route.kind !== "page") crumb.push({title, href: routeUrl(locale, {...route, page: 1})});
+const jsonLd = collectionSchema(title, description, canonical, locale, visible, crumb);
+const nsfwLabel = (group: typeof nsfwGroups[number]) => group === "safe" ? copy.safe : group === "adult" ? copy.adult : copy.unknown;
+---
+<BaseLayout locale={locale} route={route} title={title} description={description} indexable={indexable} jsonLd={jsonLd} root={root}>
+  <section class="command-band" aria-label={copy.search}>
+    <SearchDialog client:idle locale={locale} indexUrl={catalog.searchFiles[locale]}
+      availableLanguages={languages} availableTags={tags} />
+  </section>
+  <main class="catalog-shell">
+    <section class="catalog-intro-card" aria-label={copy.catalog}>
+      {route.kind !== "home" && route.kind !== "page" && <nav class="catalog-crumbs" aria-label="Breadcrumb">
+        <a href={"/" + locale + "/"}>{copy.all}</a><span aria-hidden="true">/</span><span>{visualTitle}</span>
+      </nav>}
+      <div class="catalog-intro-main">
+        <div class="catalog-intro-heading">
+          <h1 class="catalog-heading">{visualTitle}</h1>
+          <p class="catalog-description">{description} <span class="catalog-inline-sort"><span class="catalog-sort-icon" aria-hidden="true">↗</span> {copy.sortPopularity}</span></p>
+        </div>
+        <div class="catalog-intro-stat">
+          <strong>{games.length}</strong><span>{copy.gameCount}</span>
+        </div>
+      </div>
+      <div class="catalog-sort-summary" aria-hidden="true"></div>
+      <div class="catalog-directory catalog-browse" role="radiogroup" aria-label={copy.browseCategories}>
+        <input class="catalog-browse-input" type="radio" id="catalog-browse-types" name="catalog-browse" checked={route.kind !== "languages" && route.kind !== "nsfw"} />
+        <label class="catalog-browse-button" for="catalog-browse-types">{copy.browseTypes}</label>
+        <input class="catalog-browse-input" type="radio" id="catalog-browse-languages" name="catalog-browse" checked={route.kind === "languages"} />
+        <label class="catalog-browse-button" for="catalog-browse-languages">{copy.browseLanguages}</label>
+        <input class="catalog-browse-input" type="radio" id="catalog-browse-age" name="catalog-browse" checked={route.kind === "nsfw"} />
+        <label class="catalog-browse-button" for="catalog-browse-age">{copy.browseAge}</label>
+        <div class="catalog-directory-body catalog-browse-panel catalog-browse-panel--types">
+          <nav class="category-nav" aria-label={copy.genres}>
+            <a href={"/" + locale + "/"} aria-current={route.kind === "home" ? "page" : undefined}>{copy.all}</a>
+            {tags.map((tag) => <a href={"/" + locale + "/tags/" + tag + "/"} aria-current={route.kind === "tags" && route.slug === tag ? "page" : undefined}>{taxonomyLabel(tag, locale)}</a>)}
+          </nav>
+        </div>
+        <div class="catalog-directory-body catalog-browse-panel catalog-browse-panel--languages">
+          <nav class="category-nav" aria-label={copy.languages}>
+            <a href={"/" + locale + "/"} aria-current={route.kind !== "languages" ? "page" : undefined}>{copy.allLanguages}</a>
+            {languages.map((language) => <a href={"/" + locale + "/languages/" + language + "/"} aria-current={route.kind === "languages" && route.slug === language ? "page" : undefined}>{langLabel(language, locale)}</a>)}
+          </nav>
+        </div>
+        <div class="catalog-directory-body catalog-browse-panel catalog-browse-panel--age">
+          <nav class="category-nav" aria-label={copy.nsfwFilter}>
+            <a href={"/" + locale + "/"} aria-current={route.kind !== "nsfw" ? "page" : undefined}>{copy.nsfwAll} ({catalog.games.length})</a>
+            {nsfwGroups.map((group) => <a href={"/" + locale + "/nsfw/" + group + "/"} aria-current={route.kind === "nsfw" && route.slug === group ? "page" : undefined}>
+              {nsfwLabel(group)} ({filterNsfw(group).length})
+            </a>)}
+          </nav>
+        </div>
+      </div>
+    </section>
+    <div class="catalog-heading-row">
+      <span>{visible.length} / {games.length} {copy.gameCount}</span>
+      <span>{copy.page} {page} {copy.of} {totalPages}</span>
+    </div>
+    <div class="catalog-grid">
+      {visible.map((game) => <GameCard game={game} locale={locale} />)}
+    </div>
+    <CatalogPagination locale={locale} route={route} page={page} total={totalPages} />
+  </main>
+</BaseLayout>

@@ -4,6 +4,22 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      frontend_ref:
+        description: Frontend commit to build (rollback only; defaults to workflow commit)
+        required: false
+        type: string
+      index_ref:
+        description: WebRPG-org/index immutable 40-character commit SHA (optional)
+        required: false
+        type: string
+  repository_dispatch:
+    types: [index-updated]
+  # F11 fallback: the read-only Index repository has no dispatch sender.
+  # Off-hour cron avoids :00 scheduling congestion; only meaningful catalog changes deploy.
+  schedule:
+    - cron: '23 */6 * * *'
 
 permissions:
   contents: read
@@ -17,33 +33,72 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      should_deploy: ${{ steps.release_gate.outputs.should_deploy }}
     steps:
-      - name: Checkout
+      - name: Checkout selected frontend revision
         uses: actions/checkout@v4
-
+        with:
+          ref: ${{ inputs.frontend_ref || github.sha }}
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: package-lock.json
-
+      - name: Read-only scheduled Index preflight
+        id: index_poll
+        if: github.event_name == 'schedule'
+        run: node scripts/check-index-update.mjs preflight
       - name: Install dependencies
+        if: github.event_name != 'schedule' || steps.index_poll.outputs.should_build == 'true'
         run: npm ci
-
-      - name: Build
-        run: npm run build
-
+      - name: Validate snapshot, full catalog, HTML/SEO and legacy route reservation
+        if: github.event_name != 'schedule' || steps.index_poll.outputs.should_build == 'true'
+        env:
+          INDEX_REF: ${{ inputs.index_ref || github.event.client_payload.index_ref || steps.index_poll.outputs.index_sha || '' }}
+          ASTRO_TELEMETRY_DISABLED: '1'
+        run: npm run ci
+      - name: Compare published catalog with fully validated build
+        id: release_gate
+        env:
+          IS_SCHEDULED: ${{ github.event_name == 'schedule' }}
+          POLL_SHOULD_BUILD: ${{ steps.index_poll.outputs.should_build }}
+        shell: bash
+        run: |
+          if [[ "$IS_SCHEDULED" != "true" ]]; then
+            echo "should_deploy=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$POLL_SHOULD_BUILD" != "true" ]]; then
+            echo "should_deploy=false" >> "$GITHUB_OUTPUT"
+          else
+            node scripts/check-index-update.mjs postbuild
+          fi
+      - name: Install Chrome for real browser checks
+        if: steps.release_gate.outputs.should_deploy == 'true'
+        id: setup-chrome
+        uses: browser-actions/setup-chrome@v2
+      - name: Run desktop, mobile, no-JavaScript and language recommendation checks
+        if: steps.release_gate.outputs.should_deploy == 'true'
+        env:
+          BROWSER_PATH: ${{ steps.setup-chrome.outputs.chrome-path }}
+        run: npm run test:browser
+      - name: Upload build manifest
+        if: steps.release_gate.outputs.should_deploy == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: webrpg-build-manifest
+          path: dist/build-manifest.json
       - name: Configure Pages
+        if: steps.release_gate.outputs.should_deploy == 'true'
         uses: actions/configure-pages@v5
-
       - name: Upload artifact
+        if: steps.release_gate.outputs.should_deploy == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
-
   deploy:
     needs: build
+    if: needs.build.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
