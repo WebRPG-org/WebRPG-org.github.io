@@ -4,7 +4,7 @@ import { GameCard } from "../components/game/GameCard";
 import CatalogPagination from "../components/catalog/Pagination.astro";
 import SearchDialog from "../components/interactive/SearchDialog";
 import { UI, taxonomyLabel, langLabel } from "../i18n/ui";
-import { catalog, sortedGames, pageSlice, tags, languages, pageCount, type GameView } from "../data/catalog";
+import { catalog, sortedGames, pageSlice, tags, languages, pageCount, filterNsfw, nsfwGroups, type GameView } from "../data/catalog";
 import { routeUrl, type Route } from "../i18n/routes";
 import { collectionSchema, absolute } from "../seo/schema";
 import type { Locale } from "../i18n/ui";
@@ -15,6 +15,7 @@ interface Props {
 const { locale, games = catalog.games, route = {kind:"home"}, page = 1, root = false } = Astro.props;
 const copy = UI[locale];
 const title = Astro.props.title || copy.catalog;
+const visualTitle = route.kind === "page" ? copy.catalog : title;
 const description = Astro.props.description || copy.curated;
 const ordered = sortedGames(games, locale);
 const visible = pageSlice(ordered, page);
@@ -28,6 +29,8 @@ const featuredTags = ["rpg", "visual-novel", "horror", "adventure", "fantasy", "
 const moreTags = tags.filter((tag) => !featuredTags.includes(tag));
 const featuredLanguages = ["en", "ja", "zh-Hans", "pt", "ko"].filter((lang) => languages.includes(lang));
 const moreLanguages = languages.filter((lang) => !featuredLanguages.includes(lang));
+const ratingCount = games.filter((game) => game.editorialRating !== null).length;
+const nsfwLabel = (group: typeof nsfwGroups[number]) => group === "safe" ? copy.safe : group === "adult" ? copy.adult : copy.unknown;
 ---
 <BaseLayout locale={locale} route={route} title={title} description={description} indexable={indexable} jsonLd={jsonLd} root={root}>
   <section class="command-band" aria-label={copy.search}>
@@ -35,36 +38,63 @@ const moreLanguages = languages.filter((lang) => !featuredLanguages.includes(lan
       availableLanguages={languages} availableTags={tags} />
   </section>
   <main class="catalog-shell">
-    <h1 class="catalog-heading">{title}</h1>
-    <p class="catalog-description">{description}</p>
-    {route.kind !== "home" && <nav class="breadcrumbs" aria-label="Breadcrumb">
-      <a href={"/" + locale + "/"}>{copy.all}</a><span aria-hidden="true">/</span><span>{title}</span>
-    </nav>}
-    <details class="catalog-directory" open={route.kind === "tags" || route.kind === "languages"}>
-      <summary>{copy.browseCategories}</summary>
-      <div class="catalog-directory-body">
-    <nav class="category-nav" aria-label={copy.genres}>
-      <a href={"/" + locale + "/"} aria-current={route.kind === "home" ? "page" : undefined}>{copy.all}</a>
-      {featuredTags.map((tag) => <a href={"/" + locale + "/tags/" + tag + "/"} aria-current={route.kind === "tags" && route.slug === tag ? "page" : undefined}>{taxonomyLabel(tag, locale)}</a>)}
-      {moreTags.length > 0 && <details class="category-more" open={route.kind === "tags" && !!route.slug && moreTags.includes(route.slug)}>
-        <summary>{copy.moreGenres} ({moreTags.length})</summary>
-        <div class="category-more-links">
-          {moreTags.map((tag) => <a href={"/" + locale + "/tags/" + tag + "/"} aria-current={route.kind === "tags" && route.slug === tag ? "page" : undefined}>{taxonomyLabel(tag, locale)}</a>)}
+    <section class="catalog-intro-card" aria-label={copy.catalog}>
+      {route.kind !== "home" && route.kind !== "page" && <nav class="catalog-crumbs" aria-label="Breadcrumb">
+        <a href={"/" + locale + "/"}>{copy.all}</a><span aria-hidden="true">/</span><span>{visualTitle}</span>
+      </nav>}
+      <div class="catalog-intro-main">
+        <div class="catalog-intro-heading">
+          <h1 class="catalog-heading">{visualTitle}</h1>
+          <p class="catalog-description">{description}</p>
         </div>
-      </details>}
-    </nav>
-    <nav class="category-nav" aria-label={copy.languages}>
-      {featuredLanguages.map((language) => <a href={"/" + locale + "/languages/" + language + "/"} aria-current={route.kind === "languages" && route.slug === language ? "page" : undefined}>{langLabel(language, locale)}</a>)}
-      {moreLanguages.length > 0 && <details class="category-more" open={route.kind === "languages" && !!route.slug && moreLanguages.includes(route.slug)}>
-        <summary>{copy.moreLanguages} ({moreLanguages.length})</summary>
-        <div class="category-more-links">
-          {moreLanguages.map((language) => <a href={"/" + locale + "/languages/" + language + "/"} aria-current={route.kind === "languages" && route.slug === language ? "page" : undefined}>{langLabel(language, locale)}</a>)}
+        <div class="catalog-intro-stat">
+          <strong>{games.length}</strong><span>{copy.gameCount}</span>
         </div>
-      </details>}
-    </nav>
       </div>
-    </details>
-    <div class="catalog-heading-row"><span>{games.length} {copy.gameCount}</span><span>{copy.page} {page} {copy.of} {totalPages}</span></div>
+      <div class="catalog-sort-summary">
+        <span aria-hidden="true">★</span>
+        <span>{copy.sortRating}</span>
+        <span class="catalog-rated-count">{ratingCount} {copy.editorialScore}</span>
+      </div>
+      <nav class="content-rating-nav" aria-label={copy.nsfwFilter}>
+        <span class="content-rating-title">{copy.nsfwFilter}</span>
+        <a href={"/" + locale + "/"} class:list={["rating-filter-chip",route.kind !== "nsfw" ? "rating-filter-active" : ""]} aria-current={route.kind !== "nsfw" ? "page" : undefined}>{copy.nsfwAll} <small>{catalog.games.length}</small></a>
+        {nsfwGroups.map((group) => <a
+          href={"/" + locale + "/nsfw/" + group + "/"}
+          class:list={["rating-filter-chip", route.kind === "nsfw" && route.slug === group ? "rating-filter-active" : ""]}
+          aria-current={route.kind === "nsfw" && route.slug === group ? "page" : undefined}>
+          {nsfwLabel(group)} <small>{filterNsfw(group).length}</small>
+        </a>)}
+      </nav>
+      <details class="catalog-directory" open={route.kind === "tags" || route.kind === "languages"}>
+        <summary>{copy.browseCategories}</summary>
+        <div class="catalog-directory-body">
+          <nav class="category-nav" aria-label={copy.genres}>
+            <a href={"/" + locale + "/"} aria-current={route.kind === "home" ? "page" : undefined}>{copy.all}</a>
+            {featuredTags.map((tag) => <a href={"/" + locale + "/tags/" + tag + "/"} aria-current={route.kind === "tags" && route.slug === tag ? "page" : undefined}>{taxonomyLabel(tag, locale)}</a>)}
+            {moreTags.length > 0 && <details class="category-more" open={route.kind === "tags" && !!route.slug && moreTags.includes(route.slug)}>
+              <summary>{copy.moreGenres} ({moreTags.length})</summary>
+              <div class="category-more-links">
+                {moreTags.map((tag) => <a href={"/" + locale + "/tags/" + tag + "/"} aria-current={route.kind === "tags" && route.slug === tag ? "page" : undefined}>{taxonomyLabel(tag, locale)}</a>)}
+              </div>
+            </details>}
+          </nav>
+          <nav class="category-nav" aria-label={copy.languages}>
+            {featuredLanguages.map((language) => <a href={"/" + locale + "/languages/" + language + "/"} aria-current={route.kind === "languages" && route.slug === language ? "page" : undefined}>{langLabel(language, locale)}</a>)}
+            {moreLanguages.length > 0 && <details class="category-more" open={route.kind === "languages" && !!route.slug && moreLanguages.includes(route.slug)}>
+              <summary>{copy.moreLanguages} ({moreLanguages.length})</summary>
+              <div class="category-more-links">
+                {moreLanguages.map((language) => <a href={"/" + locale + "/languages/" + language + "/"} aria-current={route.kind === "languages" && route.slug === language ? "page" : undefined}>{langLabel(language, locale)}</a>)}
+              </div>
+            </details>}
+          </nav>
+        </div>
+      </details>
+    </section>
+    <div class="catalog-heading-row">
+      <span>{visible.length} / {games.length} {copy.gameCount}</span>
+      <span>{copy.page} {page} {copy.of} {totalPages}</span>
+    </div>
     <div class="catalog-grid">
       {visible.map((game) => <GameCard game={game} locale={locale} />)}
     </div>

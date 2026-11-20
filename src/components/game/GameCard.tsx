@@ -18,7 +18,10 @@ export function GameCard({ game, locale }: { game: GameView; locale: Locale }) {
       </a>
       <div className="game-body">
         <div className="game-heading">
-          <CardTitle className="game-title"><a href={href}>{title}</a></CardTitle>
+          <div className="game-title-row">
+            <CardTitle className="game-title"><a href={href}>{title}</a></CardTitle>
+            {game.editorialRating !== null && <span className="game-rating" title={copy.ratingLegend} aria-label={`${copy.editorialScore}: ${game.editorialRating}/10`}>★ {game.editorialRating}<small>/10</small></span>}
+          </div>
           <p className="game-repo">{gameDescription(game, locale)}</p>
         </div>
         <div className="game-meta">
@@ -27,7 +30,7 @@ export function GameCard({ game, locale }: { game: GameView; locale: Locale }) {
           </a>)}
           {game.languages.slice(0, 2).map((lang) => <a key={lang} href={"/" + locale + "/languages/" + lang + "/"}><Badge variant="outline" className="size-pill">{langLabel(lang, locale)}</Badge></a>)}
           {game.languages.length > 2 && <Badge variant="outline" className="size-pill">+{game.languages.length - 2}</Badge>}
-          {game.nsfw !== false && <Badge variant="outline" className="size-pill">{game.nsfw === true ? copy.adult : copy.unknown}</Badge>}
+          {game.nsfw !== false && <a href={"/" + locale + "/nsfw/" + (game.nsfw === true ? "adult" : "unknown") + "/"} aria-label={copy.nsfwFilter + ": " + (game.nsfw === true ? copy.adult : copy.unknown)}><Badge variant="outline" className="size-pill caution-pill">{game.nsfw === true ? copy.adult : copy.unknown}</Badge></a>}
           {game.instances.length > 1 && <Badge variant="outline" className="size-pill">{game.instances.length} {copy.editions}</Badge>}
         </div>
         <div className="game-actions">

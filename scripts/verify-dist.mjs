@@ -153,6 +153,22 @@ for (const url of sitemap) {
 }
 assert(!sitemap.includes("https://webrpg.org/"), "Root duplicate in sitemap");
 const sitemapSet = new Set(sitemap);
+// Content-rating facets are browseable static HTML, but deliberately noindex to avoid
+// duplicating the canonical work directory. Their pagination must remain valid without JS.
+for (const locale of ["en", "zh-Hans", "ja"]) {
+  for (const [group, expectedState] of [["safe",false],["adult",true],["unknown","unknown"]]) {
+    const works=catalog.games.filter((game)=>game.nsfw===expectedState);
+    const last=Math.ceil(works.length/36);
+    for (let number=1;number<=last;number++) {
+      const path="/"+locale+"/nsfw/"+group+"/"+(number>1?"page/"+number+"/":"");
+      assert(html.has(path),path+": missing static content rating page");
+      assert(robots.get(path)?.includes("noindex"),path+": filter page must noindex");
+      assert(!sitemapSet.has("https://webrpg.org"+path),path+": filtered facet leaked into sitemap");
+    }
+    assert(!html.has("/"+locale+"/nsfw/"+group+"/page/1/"),locale+": duplicate first facet page");
+  }
+}
+assert(!html.has("/en/nsfw/invalid/"),"Invalid content rating group must not render");
 for (const game of catalog.games) {
   for (const locale of ["en", "zh-Hans", "ja"]) {
     const path = "/" + locale + "/game/" + game.slug + "/";

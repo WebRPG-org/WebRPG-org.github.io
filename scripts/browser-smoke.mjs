@@ -44,10 +44,14 @@ try {
     assert.equal(new URL(page.url()).pathname,"/");
     assert.equal(await page.locator('link[rel="canonical"]').getAttribute("href"),"https://webrpg.org/en/");
     assert(await page.locator("main .game-card").count()>0);
-    const rootMain=await page.locator("main").innerHTML();
+    // Browser DOM may relocate React preload hints during navigation. The dist auditor separately
+    // requires byte-identical static <main> for / and /en/; compare visible content and links here.
+    const rootMain=await page.locator("main").innerText();
+    const rootLinks=await page.locator("main a[href]").evaluateAll((nodes)=>nodes.map(node=>node.getAttribute("href")));
     const englishResponse=await page.goto(http("/en/"),{waitUntil:"domcontentloaded",timeout:35000});
     assert.equal(englishResponse.status(),200);
-    assert.equal(await page.locator("main").innerHTML(),rootMain);
+    assert.equal(await page.locator("main").innerText(),rootMain);
+    assert.deepEqual(await page.locator("main a[href]").evaluateAll((nodes)=>nodes.map(node=>node.getAttribute("href"))),rootLinks);
     assert.equal(await page.locator('html').getAttribute("lang"),"en");
     await waitForImage(page);
     await page.screenshot({path:join(images,"desktop-en.png"),fullPage:false});
@@ -67,7 +71,7 @@ try {
     await page.screenshot({path:join(images,"desktop-detail-ja.png"),fullPage:false});
   });
   await check("All three languages, tags, playable languages, and exact 404 (no SPA catch-all)",async()=>{
-    for(const path of ["/zh-Hans/","/ja/","/en/tags/horror/","/en/languages/pt/"]){
+    for(const path of ["/zh-Hans/","/ja/","/en/tags/horror/","/en/languages/pt/","/en/nsfw/adult/","/en/nsfw/unknown/","/en/nsfw/safe/"]){
       const response=await page.goto(http(path),{waitUntil:"domcontentloaded"});
       assert.equal(response.status(),200,path);
       assert(await page.locator("h1").count()>0,path);
@@ -86,6 +90,9 @@ try {
     assert(s.font.toLowerCase().includes("zpix"),s.font);
     assert(s.background.includes("gradient"),s.background);
     assert(s.width>290,s.width);
+    const header=await page.locator(".catalog-intro-card").evaluate(el=>({background:getComputedStyle(el).backgroundColor,color:getComputedStyle(el.querySelector("h1")).color}));
+    assert(header.background.includes("255, 240, 200"),JSON.stringify(header));
+    assert(header.color.includes("36, 22, 13"),JSON.stringify(header));
   });
   await check("React search island lazy-loads full catalog, including last paginated game",async()=>{
     await page.goto(http("/en/"),{waitUntil:"domcontentloaded"});
@@ -136,7 +143,7 @@ try {
   });
   await check("Draft, short synopsis and NSFW/unknown classification follow direct-publication rules",async()=>{
     const collator = new Intl.Collator("en",{sensitivity:"base",numeric:true});
-    const ordered = [...gameCatalog.games].sort((a,b)=>collator.compare(a.titleByLocale.en,b.titleByLocale.en)||a.slug.localeCompare(b.slug));
+    const ordered = [...gameCatalog.games].sort((a,b)=>(b.editorialRating??-1)-(a.editorialRating??-1)||collator.compare(a.titleByLocale.en,b.titleByLocale.en)||a.slug.localeCompare(b.slug));
     for (const [state,label] of [[true,"Adult"],["unknown","Unrated"]]) {
       const game=gameCatalog.games.find((item)=>item.nsfw===state && item.indexable.en);
       assert(game,"Missing class sample for " + state);
@@ -159,6 +166,43 @@ try {
       await page.goto(http("/en/game/"+game.slug+"/"),{waitUntil:"domcontentloaded"});
       assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'),"noindex,follow");
     }
+  });
+  await check("Editorial rating drives stable work order; NSFW facets and card tags are navigable without JS",async()=>{
+    await page.goto(http("/zh-Hans/"),{waitUntil:"domcontentloaded"});
+    const scoreGames=gameCatalog.games.filter(game=>game.editorialRating!==null);
+    const scores=await page.locator(".game-card .game-rating").allInnerTexts();
+    assert.equal(scoreGames.length,17);
+    assert.equal(scores.length,scoreGames.length);
+    const sortedScores=scores.map(text=>Number(text.match(/\d+/)?.[0]));
+    assert.deepEqual(sortedScores,[...sortedScores].sort((a,b)=>b-a));
+    assert.equal(await page.locator(".catalog-intro-card h1").innerText(),"作品目录");
+    const firstScoreCard=page.locator(".game-card").first();
+    const buttonBounds=await firstScoreCard.locator(".game-actions .action-button").evaluateAll((els)=>els.map(el=>{
+      const r=el.getBoundingClientRect();return {left:r.left,right:r.right,width:r.width};
+    }));
+    assert.equal(buttonBounds.length,2);
+    assert(buttonBounds[0].right<buttonBounds[1].left);
+    assert(Math.abs(buttonBounds[0].width-buttonBounds[1].width)<2);
+    await page.locator('a[href="/zh-Hans/nsfw/adult/"]').first().click();
+    await page.waitForLoadState("domcontentloaded");
+    assert.equal(new URL(page.url()).pathname,"/zh-Hans/nsfw/adult/");
+    await page.waitForFunction(()=>document.querySelectorAll(".game-card").length===36,{timeout:12000});
+    assert.equal(await page.locator(".game-card").count(),36,"Adult first page should contain 36 games");
+    assert.equal(await page.locator('meta[name="robots"]').getAttribute("content"),"noindex,follow");
+    assert(await page.locator('.pager a[href="/zh-Hans/nsfw/adult/page/2/"]').count()>0);
+    await page.locator('.pager a[href="/zh-Hans/nsfw/adult/page/2/"]').first().click();
+    await page.waitForLoadState("domcontentloaded");
+    assert.equal(new URL(page.url()).pathname,"/zh-Hans/nsfw/adult/page/2/");
+    assert.equal(await page.locator(".game-card").count(),7);
+    await page.goto(http("/zh-Hans/nsfw/unknown/"),{waitUntil:"domcontentloaded"});
+    assert.equal(await page.locator(".game-card").count(),2);
+    await page.goto(http("/zh-Hans/game/" + sampleGame.slug + "/"),{waitUntil:"domcontentloaded"});
+    const detail=page.locator(".detail-card");
+    assert(await detail.locator("h1").isVisible());
+    assert(await detail.locator(".detail-facts").isVisible());
+    assert.equal(await detail.locator(".instance-actions .instance-source").count(),0);
+    assert(await detail.locator(".detail-source-list a").count()>0);
+    assert(await detail.locator(".instance-play").count()>=1);
   });
   await check("Mobile 320/390px pages avoid horizontal overflow and keep readable nav",async()=>{
     for(const width of [320,390]){

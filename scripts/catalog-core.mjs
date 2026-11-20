@@ -2,7 +2,7 @@
 // Every public View object is explicitly projected: no upstream popularity or editorial notes escape.
 export const LOCALES = ["en", "zh-Hans", "ja"];
 export const PAGE_SIZE = 36;
-export const RESERVED = ["en", "zh-hans", "ja", "page", "game", "tags", "languages", "assets", "data", "search", "_astro", "fonts"];
+export const RESERVED = ["en", "zh-hans", "ja", "page", "game", "tags", "languages", "assets", "data", "search", "_astro", "fonts", "nsfw"];
 const TITLE_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 // Editorial placeholder text must not be published as factual copy; it is not an indexability gate.
 const BAD_COPY = /待审核|示例内容|占位|placeholder|lorem ipsum|to be reviewed|sample text|未审核|仮文|ダミー/i;
@@ -63,6 +63,7 @@ export function adaptGameV1(key, source) {
     publishers: credits(source.publishers),
     releaseDate: /^\d{4}-\d{2}-\d{2}$/.test(source.release?.date || "") ? source.release.date : null,
     mediaCover: safeCover(source.media?.cover), nsfw: boolUnknown(source.contentAdvisory?.nsfw),
+    editorialRating: typeof source.rating === "number" && Number.isFinite(source.rating) && source.rating >= 0 && source.rating <= 10 ? source.rating : null,
     editorialStatus: status(source.editorial?.status), qualityFlags: strings(source.editorial?.qualityFlags),
     indexPolicy: source.seo?.indexPolicy === "noindex" ? "noindex" : "auto",
     relations: (Array.isArray(source.relations) ? source.relations : []).map((relation) => ({
@@ -180,7 +181,7 @@ export function normalizeCatalog(registry, list, source = {}) {
 }
 export function sortedGames(games, locale) {
   const collator = new Intl.Collator(locale, { sensitivity: "base", numeric: true });
-  return [...games].sort((a, b) => collator.compare(a.titleByLocale[locale], b.titleByLocale[locale]) || a.slug.localeCompare(b.slug));
+  return [...games].sort((a, b) => (b.editorialRating ?? -1) - (a.editorialRating ?? -1) || collator.compare(a.titleByLocale[locale], b.titleByLocale[locale]) || a.slug.localeCompare(b.slug));
 }
 export function filterGames(games, kind, value) {
   return games.filter((g) => kind === "tags" ? g.genres.includes(value) || g.themes.includes(value) : g.languages.includes(value));

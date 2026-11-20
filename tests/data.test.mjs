@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import {
   normalizeCatalog, canIndexGameLocale, registerAdapter, adaptGameV1,
-  makeSearchIndex, searchGames, LOCALES, PAGE_SIZE,
+  makeSearchIndex, searchGames, sortedGames, LOCALES, PAGE_SIZE,
 } from "../scripts/catalog-core.mjs";
 const snapshot = JSON.parse(readFileSync(new URL("../.cache/catalog.json", import.meta.url), "utf8"));
 const rawGames = JSON.parse(readFileSync(new URL("../.cache/snapshots/" + snapshot.source.commit + "/games.json", import.meta.url), "utf8"));
@@ -156,4 +156,33 @@ test("search index covers all Game records, beyond the first 36, without popular
     assert(index.some(x=>x.languages.includes("zh-Hant")));
     assert(!index.some(x=>Object.hasOwn(x,"popularity") || Object.hasOwn(x,"rating")));
   }
+});
+
+
+test("published source editorial rating is optional and sorts descending, without inventing user ratings", () => {
+  const real=normalizeCatalog(rawGames,rawList,snapshot.source);
+  const scored=real.games.filter(g=>g.editorialRating!==null);
+  assert.equal(scored.length,17);
+  assert.equal(real.games.find(g=>g.slug==="narcissu").editorialRating,8);
+  const sorted=sortedGames(real.games,"en");
+  assert(sorted.slice(0,scored.length).every(g=>g.editorialRating!==null));
+  assert(sorted.slice(scored.length).every(g=>g.editorialRating===null));
+  for(let i=1;i<scored.length;i++) assert(sorted[i-1].editorialRating>=sorted[i].editorialRating);
+  assert.equal(sorted[0].editorialRating,9);
+  const changed={...real.games.find(g=>g.slug==="narcissu"),editorialRating:null};
+  assert(sortedGames([real.games.find(g=>g.slug==="orangeblood"),changed],"en")[0].slug==="orangeblood");
+  for(const locale of LOCALES){
+    const result=makeSearchIndex(real.games,locale);
+    assert(result.every(g=>!Object.hasOwn(g,"editorialRating")&&!Object.hasOwn(g,"aggregateRating")));
+  }
+});
+
+test("ratings must stay optional and reject invalid or out-of-range sources",()=>{
+  const x=fixture();
+  x.games.fixture.rating=9;
+  assert.equal(normalize(x).games[0].editorialRating,9);
+  x.games.fixture.rating=100;
+  assert.equal(normalize(x).games[0].editorialRating,null);
+  x.games.fixture.rating="9";
+  assert.equal(normalize(x).games[0].editorialRating,null);
 });
