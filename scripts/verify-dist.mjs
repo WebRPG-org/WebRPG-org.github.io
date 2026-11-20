@@ -40,6 +40,7 @@ const titleFrom = (page) => page.match(/<title>([^<]+)<\/title>/)?.[1] || "";
 const descFrom = (page) => attr(page, "meta", "name", "description").match(/\bcontent="([^"]+)"/)?.[1] || "";
 const canonicals = new Map();
 const robots = new Map();
+const uniqueCanonicalTitles = new Map();
 let linkCount = 0, ldCount = 0, noindex = 0;
 for (const [path, page] of html) {
   const is404 = path === "/404.html";
@@ -49,7 +50,14 @@ for (const [path, page] of html) {
   canonicals.set(path, canonical);
   robots.set(path, robot);
   if (robot.includes("noindex")) noindex++;
-  assert(titleFrom(page).length > 5, path + ": missing title");
+  const renderedTitle = titleFrom(page);
+  assert(renderedTitle.length > 5, path + ": missing title");
+  // The only intentional duplicate content path is / (canonicalized to /en/).
+  if (path !== "/" && !is404 && renderedTitle) {
+    const duplicate = uniqueCanonicalTitles.get(renderedTitle);
+    assert(!duplicate, path + ": duplicate HTML Title with " + duplicate);
+    uniqueCanonicalTitles.set(renderedTitle, path);
+  }
   assert(descFrom(page).length > 9, path + ": missing description");
   assert(/<h1\b/i.test(page), path + ": missing static H1");
   assert(/<html\b[^>]*\blang="(en|ja|zh-Hans)"/.test(page), path + ": bad html language");

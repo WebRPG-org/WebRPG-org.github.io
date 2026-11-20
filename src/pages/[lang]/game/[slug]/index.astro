@@ -11,7 +11,9 @@ interface Props {game: GameView}
 const {game} = Astro.props;
 const locale = Astro.params.lang as Locale;
 const route = {kind:"game" as const, slug:game.slug};
-const title = game.titleByLocale[locale] + " — " + UI[locale].details;
+const localizedTitle = game.titleByLocale[locale];
+const ambiguousTitle = catalog.games.some((other) => other.slug !== game.slug && other.titleByLocale[locale].trim().toLocaleLowerCase() === localizedTitle.trim().toLocaleLowerCase());
+const title = localizedTitle + (ambiguousTitle ? " (" + game.slug + ")" : "") + " — " + UI[locale].details;
 const description = game.introductions[locale].summary || game.originalTitle;
 const canonical = absolute("/" + locale + "/game/" + game.slug + "/");
 const breadcrumbs = [
