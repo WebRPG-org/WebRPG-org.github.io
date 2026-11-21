@@ -210,10 +210,37 @@ try {
       assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'),"noindex,follow");
     }
   });
+  await check("English title is the universal tie breaker across all locale directories",async()=>{
+    const collator=new Intl.Collator("en",{sensitivity:"base",numeric:true});
+    const rank=(games)=>[...games].sort((a,b)=>(b.popularity??-1)-(a.popularity??-1)||
+      collator.compare(a.titleByLocale.en,b.titleByLocale.en)||a.slug.localeCompare(b.slug,"en"));
+    for(const [kind,slug,filter] of [
+      ["home",null,(g)=>true],
+      ["tags","horror",(g)=>g.genres.includes("horror")||g.themes.includes("horror")],
+      ["languages","ja",(g)=>g.languages.includes("ja")],
+    ]){
+      const expected=rank(gameCatalog.games.filter(filter)).map(g=>g.slug);
+      for(const locale of ["en","zh-Hans","ja"]){
+        for(const pageNumber of kind==="home"?[1,2]:[1]){
+          const route=kind==="home"?
+            (pageNumber===1?"/"+locale+"/":"/"+locale+"/page/"+pageNumber+"/"):
+            "/"+locale+"/"+kind+"/"+slug+"/";
+          await page.goto(http(route),{waitUntil:"domcontentloaded"});
+          const actual=await page.locator(".game-card .game-title a").evaluateAll(
+            (elements)=>elements.map(x=>x.getAttribute("href").split("/game/")[1].split("/")[0]));
+          assert.deepEqual(actual,expected.slice((pageNumber-1)*36,pageNumber*36),"Different game order in "+route);
+          const canonical="https://webrpg.org"+route;
+          const xDefault=await page.locator('link[rel="alternate"][hreflang="x-default"]').getAttribute("href");
+          assert.equal(xDefault,canonical.replace("/"+locale+"/","/en/"),"x-default must be English canonical");
+          assert.equal(await page.locator('link[rel="canonical"]').getAttribute("href"),canonical);
+        }
+      }
+    }
+  });
   await check("Popularity determines work order, action buttons align at card bottoms, and NSFW facets navigate statically",async()=>{
     await page.goto(http("/zh-Hans/"),{waitUntil:"domcontentloaded"});
-    const collator=new Intl.Collator("zh-Hans",{sensitivity:"base",numeric:true});
-    const ordered=[...gameCatalog.games].sort((a,b)=>(b.popularity??-1)-(a.popularity??-1)||collator.compare(a.titleByLocale["zh-Hans"],b.titleByLocale["zh-Hans"])||a.slug.localeCompare(b.slug));
+    const collator=new Intl.Collator("en",{sensitivity:"base",numeric:true});
+    const ordered=[...gameCatalog.games].sort((a,b)=>(b.popularity??-1)-(a.popularity??-1)||collator.compare(a.titleByLocale.en,b.titleByLocale.en)||a.slug.localeCompare(b.slug,"en"));
     const links=await page.locator(".game-card .game-title a").evaluateAll(nodes=>nodes.map(el=>el.getAttribute("href")));
     assert.deepEqual(links,ordered.slice(0,36).map(game=>"/zh-Hans/game/"+game.slug+"/"),"Directory order must be popularity first");
     assert((await page.locator(".catalog-description").innerText()).includes("流行度"));
@@ -279,9 +306,9 @@ try {
     assert.equal(await page.locator(".catalog-browse-panel--languages .category-more").count(),0);
     assert.equal(await page.locator(".catalog-browse-panel--languages .category-nav > a").count(),allLanguages.size+1);
     assert.equal((await page.locator('.catalog-browse-panel--languages a[href="/zh-Hans/"]').innerText()).trim(),"全部语言");
-    const collator=new Intl.Collator("zh-Hans",{sensitivity:"base",numeric:true});
+    const collator=new Intl.Collator("en",{sensitivity:"base",numeric:true});
     const ordered=[...gameCatalog.games].sort((a,b)=>(b.popularity??-1)-(a.popularity??-1)||
-      collator.compare(a.titleByLocale["zh-Hans"],b.titleByLocale["zh-Hans"])||a.slug.localeCompare(b.slug));
+      collator.compare(a.titleByLocale.en,b.titleByLocale.en)||a.slug.localeCompare(b.slug,"en"));
     const multi=ordered.find(g=>g.instances.length>1&&g.instances.some(i=>i.available===true&&!i.needsReview));
     assert(multi,"Latest source must include multi-version game");
     const idx=ordered.findIndex(g=>g.slug===multi.slug),number=Math.floor(idx/36)+1;

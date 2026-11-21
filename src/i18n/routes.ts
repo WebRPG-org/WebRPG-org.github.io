@@ -32,7 +32,8 @@ export function urlAlternates(route: Route, indexable: boolean): Partial<Record<
     (route.kind !== "game" || !!gameBySlug.get(route.slug || "")?.indexable[locale]));
   const alternates: Partial<Record<Locale | "x-default", string>> = {};
   for (const locale of locales) alternates[locale] = "https://webrpg.org" + routeUrl(locale, route);
-  if (route.kind === "home") alternates["x-default"] = "https://webrpg.org/";
+  // x-default must itself be canonical. The English route exists for every published locale group.
+  if (alternates.en) alternates["x-default"] = alternates.en;
   return alternates;
 }
 export function routeFromPath(pathname: string): Route {

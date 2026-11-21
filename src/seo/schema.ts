@@ -30,8 +30,7 @@ export function gameSchema(game: GameView, locale: Locale, canonical: string, br
   };
   if (game.coverUrl) gameData.image = game.coverUrl;
   if (game.releaseDate) gameData.datePublished = game.releaseDate;
-  // Upstream credits do not assert individual vs organization; avoid inventing their identity.
-  if (game.developers.length) gameData.developer = game.developers.map((credit) => ({ "@type": "Thing", name: credit.name, ...(credit.url ? {url: credit.url} : {}) }));
-  if (game.publishers.length) gameData.publisher = game.publishers.map((credit) => ({ "@type": "Thing", name: credit.name, ...(credit.url ? {url: credit.url} : {}) }));
+  // Schema.org developer/publisher require Person or Organization, not generic Thing.
+  // Upstream credits contain no identity kind, so keep them in visible HTML rather than inventing one.
   return { "@context": "https://schema.org", "@graph": [webpage, breadcrumbs(bread), gameData] };
 }

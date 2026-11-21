@@ -180,9 +180,10 @@ export function normalizeCatalog(registry, list, source = {}) {
       indexableGameLocales: games.reduce((a, g) => a + LOCALES.filter((l) => g.indexable[l]).length, 0), listEntries: list.length },
     forkNames: [...existingForks].sort() };
 }
-export function sortedGames(games, locale) {
-  const collator = new Intl.Collator(locale, { sensitivity: "base", numeric: true });
-  return [...games].sort((a, b) => (b.popularity ?? -1) - (a.popularity ?? -1) || collator.compare(a.titleByLocale[locale], b.titleByLocale[locale]) || a.slug.localeCompare(b.slug));
+export function sortedGames(games, _locale) {
+  // All three interface locales share the same popularity/English-title ranking.
+  const collator = new Intl.Collator("en", { sensitivity: "base", numeric: true });
+  return [...games].sort((a, b) => (b.popularity ?? -1) - (a.popularity ?? -1) || collator.compare(a.titleByLocale.en, b.titleByLocale.en) || a.slug.localeCompare(b.slug, "en"));
 }
 export function filterGames(games, kind, value) {
   return games.filter((g) => kind === "tags" ? g.genres.includes(value) || g.themes.includes(value) : g.languages.includes(value));
@@ -191,9 +192,9 @@ export function normalizeTerm(value) {
   return String(value || "").normalize("NFKC").toLocaleLowerCase().trim();
 }
 export function makeSearchIndex(games, locale) {
-  // Search relevance and its JSON index do not use popularity, editorial ratings or assessment notes.
-  const collator = new Intl.Collator(locale, { sensitivity: "base", numeric: true });
-  const byTitle = [...games].sort((a,b) => collator.compare(a.titleByLocale[locale], b.titleByLocale[locale]) || a.slug.localeCompare(b.slug));
+  // Search relevance is unaffected by popularity; browse-order ties use English across locales.
+  const collator = new Intl.Collator("en", { sensitivity: "base", numeric: true });
+  const byTitle = [...games].sort((a,b) => collator.compare(a.titleByLocale.en, b.titleByLocale.en) || a.slug.localeCompare(b.slug, "en"));
   return byTitle.map((g) => ({
     slug: g.slug, title: g.titleByLocale[locale], originalTitle: g.originalTitle,
     aliases: [...new Set([...Object.values(g.titleByLocale), ...g.aliases])],

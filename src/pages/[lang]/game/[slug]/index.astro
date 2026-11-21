@@ -4,7 +4,7 @@ import GameDetails from "../../../../components/game/GameDetails.astro";
 import { LOCALES, UI, type Locale } from "../../../../i18n/ui";
 import { catalog, type GameView } from "../../../../data/catalog";
 import { gameSchema, absolute } from "../../../../seo/schema";
-import { gameDescription } from "../../../../data/game-description";
+import { gameMetaDescription } from "../../../../seo/metadata";
 export function getStaticPaths() {
   return LOCALES.flatMap((lang) => catalog.games.map((game) => ({params: {lang, slug: game.slug}, props: {game}})));
 }
@@ -15,7 +15,7 @@ const route = {kind:"game" as const, slug:game.slug};
 const localizedTitle = game.titleByLocale[locale];
 const ambiguousTitle = catalog.games.some((other) => other.slug !== game.slug && other.titleByLocale[locale].trim().toLocaleLowerCase() === localizedTitle.trim().toLocaleLowerCase());
 const title = localizedTitle + (ambiguousTitle ? " (" + game.slug + ")" : "") + " — " + UI[locale].details;
-const description = gameDescription(game, locale);
+const description = gameMetaDescription(game, locale);
 const canonical = absolute("/" + locale + "/game/" + game.slug + "/");
 const breadcrumbs = [
   {title: UI[locale].all, href: "/" + locale + "/"},

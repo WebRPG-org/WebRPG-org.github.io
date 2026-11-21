@@ -160,7 +160,7 @@ test("search index covers all Game records, beyond the first 36, without popular
 });
 
 
-test("catalog sorts by genuine source popularity, then localized name; editorial ratings remain display-only", () => {
+test("catalog sorts by source popularity, then a fixed English title in all locales; ratings remain display-only", () => {
   const real=normalizeCatalog(rawGames,rawList,snapshot.source);
   const scored=real.games.filter(g=>g.editorialRating!==null);
   assert(scored.length>0);
@@ -172,9 +172,11 @@ test("catalog sorts by genuine source popularity, then localized name; editorial
     assert.equal(sorted.length,real.games.length);
     for (let i=1;i<sorted.length;i++) assert(sorted[i-1].popularity>=sorted[i].popularity);
     const ties=sorted.filter(g=>g.popularity===8);
-    const collator=new Intl.Collator(locale,{sensitivity:"base",numeric:true});
-    assert.deepEqual(ties.map(g=>g.slug),[...ties].sort((a,b)=>collator.compare(a.titleByLocale[locale],b.titleByLocale[locale])||a.slug.localeCompare(b.slug)).map(g=>g.slug));
+    const collator=new Intl.Collator("en",{sensitivity:"base",numeric:true});
+    assert.deepEqual(ties.map(g=>g.slug),[...ties].sort((a,b)=>collator.compare(a.titleByLocale.en,b.titleByLocale.en)||a.slug.localeCompare(b.slug,"en")).map(g=>g.slug));
+    assert.deepEqual(sorted.map(g=>g.slug),sortedGames(real.games,"en").map(g=>g.slug),"Language switch must not change the full catalog rank");
     const index=makeSearchIndex(real.games,locale);
+    assert.deepEqual(index.map(g=>g.slug),makeSearchIndex(real.games,"en").map(g=>g.slug),"Search browse results should use the same English ordering");
     assert(index.every(g=>!Object.hasOwn(g,"popularity")&&!Object.hasOwn(g,"editorialRating")&&!Object.hasOwn(g,"aggregateRating")));
   }
   const popularUnrated={...real.games.find(g=>g.slug==="narcissu"),editorialRating:null,popularity:9};

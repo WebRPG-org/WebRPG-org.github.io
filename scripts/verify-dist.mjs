@@ -58,7 +58,17 @@ for (const [path, page] of html) {
     assert(!duplicate, path + ": duplicate HTML Title with " + duplicate);
     uniqueCanonicalTitles.set(renderedTitle, path);
   }
-  assert(descFrom(page).length > 9, path + ": missing description");
+  const metaDescription = descFrom(page).replace(/&(?:amp|quot|#39|lt|gt);/g, "X");
+  assert(metaDescription.length > 9, path + ": missing description");
+  if (!is404 && !robot.includes("noindex")) {
+    assert(metaDescription.length >= 70 && metaDescription.length <= 155,
+      path + ": poor meta description length " + metaDescription.length);
+    const decodedTitle = renderedTitle.replace(/&(?:amp|quot|#39|lt|gt);/g, "X");
+    assert(Array.from(decodedTitle).length <= 65, path + ": overly long HTML title");
+  }
+  assert(!!attr(page,"meta","property","og:image"), path + ": missing OG image");
+  assert(!!attr(page,"meta","property","og:site_name"), path + ": missing OG site name");
+  assert(!!attr(page,"meta","name","twitter:image"), path + ": missing Twitter image");
   const locale = path === "/" || path === "/404.html" ? "en" : path.split("/")[1];
   const ogLocale = {en: "en_US", "zh-Hans": "zh_CN", ja: "ja_JP"}[locale];
   assert(!!attr(page, "meta", "property", "og:locale").match(new RegExp('content="' + ogLocale + '"')), path + ": invalid Open Graph locale");
@@ -76,6 +86,8 @@ for (const [path, page] of html) {
       const ld = JSON.parse(match[1]);
       assert(ld["@context"] === "https://schema.org", path + ": wrong schema context");
       assert(!JSON.stringify(ld).match(/aggregateRating|popularity|assessmentNote/), path + ": forbidden invented data");
+      // Person vs Organization cannot be inferred from the catalog; untyped Thing is invalid here.
+      assert(!JSON.stringify(ld).includes('"@type":"Thing"'),path + ": ambiguous developer/publisher type");
       ldCount++;
     } catch (err) { errors.push(path + ": invalid JSON-LD " + err.message); }
   }
@@ -126,6 +138,10 @@ for (const game of catalog.games) {
 }
 for (const [path, page] of html) {
   const links = [...page.matchAll(/<link\b[^>]*rel="alternate"[^>]*>/gi)].map((x) => x[0]);
+  if (!robots.get(path)?.includes("noindex")) {
+    const defaults=links.filter((link) => link.includes('hreflang="x-default"'));
+    assert(defaults.length === 1,path + ": every indexable page requires exactly one x-default");
+  }
   for (const link of links) {
     const href = hrefFrom(link);
     const target = pageForUrl(href);
@@ -138,7 +154,11 @@ for (const [path, page] of html) {
       const reverse = html.get(target) || "";
       const expected = '<link rel="alternate" hreflang="' + (path === "/" ? "en" : path.split("/")[1]) + '" href="' + (path === "/" ? "https://webrpg.org/en/" : "https://webrpg.org" + path) + '"';
       assert(reverse.includes(expected), path + ": hreflang not reciprocal with " + target);
-    } else assert(target === "/", path + ": unexpected x-default " + href);
+    } else {
+      assert(target?.startsWith("/en/"), path + ": x-default must target the English canonical counterpart " + href);
+      assert(canonicals.get(target) === href, path + ": x-default points to noncanonical URL " + href);
+      assert(!robots.get(target)?.includes("noindex"), path + ": x-default points to noindex");
+    }
   }
 }
 const xml = await readFile(join(dist, "sitemap.xml"), "utf8");

@@ -7,6 +7,7 @@ import { UI, taxonomyLabel, langLabel } from "../i18n/ui";
 import { catalog, sortedGames, pageSlice, tags, languages, pageCount, filterNsfw, nsfwGroups, type GameView } from "../data/catalog";
 import { routeUrl, type Route } from "../i18n/routes";
 import { collectionSchema, absolute } from "../seo/schema";
+import { catalogMetaDescription } from "../seo/metadata";
 import type { Locale } from "../i18n/ui";
 interface Props {
   locale: Locale; games?: GameView[]; route?: Route; page?: number;
@@ -17,7 +18,8 @@ const copy = UI[locale];
 const title = Astro.props.title || copy.catalog;
 const visualTitle = route.kind === "page" ? copy.catalog : title;
 const description = Astro.props.description || copy.curated;
-const ordered = sortedGames(games, locale);
+const seoDescription = catalogMetaDescription(description, locale, games.length, page, pageCount(games));
+const ordered = sortedGames(games);
 const visible = pageSlice(ordered, page);
 const totalPages = pageCount(games);
 const indexable = Astro.props.indexable ?? (games.length > 0 && (route.kind !== "tags" || games.length >= 2));
@@ -27,7 +29,7 @@ if (route.kind !== "home" && route.kind !== "page") crumb.push({title, href: rou
 const jsonLd = collectionSchema(title, description, canonical, locale, visible, crumb);
 const nsfwLabel = (group: typeof nsfwGroups[number]) => group === "safe" ? copy.safe : group === "adult" ? copy.adult : copy.unknown;
 ---
-<BaseLayout locale={locale} route={route} title={title} description={description} indexable={indexable} jsonLd={jsonLd} root={root}>
+<BaseLayout locale={locale} route={route} title={title} description={seoDescription} indexable={indexable} jsonLd={jsonLd} root={root}>
   <section class="command-band" aria-label={copy.search}>
     <SearchDialog client:idle locale={locale} indexUrl={catalog.searchFiles[locale]}
       availableLanguages={languages} availableTags={tags} />

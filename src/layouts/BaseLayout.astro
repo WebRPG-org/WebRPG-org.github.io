@@ -5,6 +5,7 @@ import type { Locale } from "../i18n/ui";
 import type { Route } from "../i18n/routes";
 import { routeUrl, routeExists, safeRouteUrl, urlAlternates } from "../i18n/routes";
 import { absolute } from "../seo/schema";
+import { seoPageTitle } from "../seo/metadata";
 import Header from "../components/layout/Header.astro";
 import Footer from "../components/layout/Footer.astro";
 import LanguageSuggestion from "../components/interactive/LanguageSuggestion";
@@ -15,7 +16,8 @@ interface Props {
 const { locale, route, title, description, indexable, ogImage, jsonLd, root = false, notFound = false } = Astro.props;
 const canonical = absolute(routeUrl(locale, route));
 const alternates = urlAlternates(route, indexable);
-const fullTitle = title.includes("WebRPG") ? title : title + " | WebRPG";
+const fullTitle = seoPageTitle(title, locale, route);
+const socialImage = ogImage || "https://webrpg.org/assets/logo.png";
 const ogLocale: Record<Locale, string> = { en: "en_US", "zh-Hans": "zh_CN", ja: "ja_JP" };
 const json = JSON.stringify(jsonLd ?? { "@context": "https://schema.org", "@type": "WebPage", name: fullTitle, ...(notFound ? {} : {url:canonical}) }).replace(/</g, "\\u003c");
 const currentPath = root ? "/" : routeUrl(locale, route);
@@ -36,8 +38,13 @@ const currentPath = root ? "/" : routeUrl(locale, route);
     <meta property="og:description" content={description} />
     {!notFound && <meta property="og:url" content={canonical} />}
     <meta property="og:locale" content={ogLocale[locale]} />
-    {ogImage && <meta property="og:image" content={ogImage} />}
+    <meta property="og:site_name" content="WebRPG" />
+    <meta property="og:image" content={socialImage} />
+    <meta property="og:image:alt" content={ogImage ? title : "WebRPG game catalog"} />
     <meta name="twitter:card" content={ogImage ? "summary_large_image" : "summary"} />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={socialImage} />
     <link rel="icon" type="image/png" href="/assets/logo.png" />
     <link rel="apple-touch-icon" href="/assets/logo.png" />
     <link rel="preload" href="/fonts/zpix.ttf" as="font" type="font/ttf" crossorigin />

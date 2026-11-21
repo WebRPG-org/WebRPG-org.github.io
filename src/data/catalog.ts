@@ -26,10 +26,13 @@ export type Catalog = {
 };
 export const catalog = snapshot as Catalog;
 export const gameBySlug = new Map(catalog.games.map((g) => [g.slug, g]));
-export const sortedGames = (games: GameView[], locale: Locale): GameView[] => {
-  const collator = new Intl.Collator(locale, { sensitivity: "base", numeric: true });
-  return [...games].sort((a, b) => (b.popularity ?? -1) - (a.popularity ?? -1) || collator.compare(a.titleByLocale[locale], b.titleByLocale[locale]) || a.slug.localeCompare(b.slug));
-};
+// The ordering must remain identical across en/zh-Hans/ja: popularity first, English title as the universal tie breaker.
+const englishCollator = new Intl.Collator("en", { sensitivity: "base", numeric: true });
+export const compareGames = (a: GameView, b: GameView): number =>
+  (b.popularity ?? -1) - (a.popularity ?? -1) ||
+  englishCollator.compare(a.titleByLocale.en, b.titleByLocale.en) ||
+  a.slug.localeCompare(b.slug, "en");
+export const sortedGames = (games: GameView[]): GameView[] => [...games].sort(compareGames);
 export const tags = [...new Set(catalog.games.flatMap((g) => [...g.genres, ...g.themes]))].sort();
 export const languages = [...new Set(catalog.games.flatMap((g) => g.languages))].sort();
 export const filterCatalog = (kind: "tags" | "languages", key: string): GameView[] =>
@@ -42,9 +45,8 @@ export const pageSlice = (games: GameView[], page: number) => games.slice((page 
 
 
 /** Same-age, shared-tag recommendations. Deterministic and entirely based on existing Game fields. */
-export const similarGames = (game: GameView, locale: Locale, limit = 4): GameView[] => {
+export const similarGames = (game: GameView, limit = 4): GameView[] => {
   const genres = new Set(game.genres), themes = new Set(game.themes);
-  const collator = new Intl.Collator(locale,{sensitivity:"base",numeric:true});
   return catalog.games
     .filter((other) => other.slug !== game.slug && other.nsfw === game.nsfw)
     .map((other) => ({
@@ -55,8 +57,6 @@ export const similarGames = (game: GameView, locale: Locale, limit = 4): GameVie
     .filter((item) => item.genreMatches + item.themeMatches > 0)
     .sort((a,b) =>
       (b.genreMatches * 4 + b.themeMatches * 2) - (a.genreMatches * 4 + a.themeMatches * 2) ||
-      (b.game.popularity ?? -1) - (a.game.popularity ?? -1) ||
-      collator.compare(a.game.titleByLocale[locale],b.game.titleByLocale[locale]) ||
-      a.game.slug.localeCompare(b.game.slug)
+      compareGames(a.game, b.game)
     ).slice(0,limit).map((item) => item.game);
 };
