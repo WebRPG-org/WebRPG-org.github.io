@@ -38,6 +38,44 @@ try {
   const page = await ctx.newPage();
   const errors=[];
   page.on("pageerror", (error)=>errors.push(error.message));
+  await check("Sitemap Index and Catalog/Play URLsets return XML 200 and robots points to the index",async()=>{
+    const pages=[
+      ["/sitemap.xml","sitemapindex",2],
+      ["/sitemap-catalog.xml","urlset",null],
+      ["/sitemap-play.xml","urlset",null],
+    ];
+    const urls={};
+    for(const [path,rootTag,expected] of pages){
+      const response=await page.request.get(http(path),{timeout:25000});
+      assert.equal(response.status(),200,path);
+      // Astro/GitHub Pages serve prerendered .xml as text/xml in some static hosts.
+      // API routes explicitly declare application/xml; both are valid XML media types.
+      assert.match(response.headers()["content-type"]||"",/^(?:application|text)\/xml(?:;|$)/i,path);
+      const xml=await response.text();
+      const parsed=await page.evaluate((source)=>{
+        const doc=new DOMParser().parseFromString(source,"application/xml");
+        const root=doc.documentElement;
+        const locs=[...root.querySelectorAll("loc")].map(node=>node.textContent);
+        return {root:root.localName,namespace:root.namespaceURI,error:doc.querySelector("parsererror")?.textContent,locs};
+      },xml);
+      assert(!parsed.error,path+": malformed XML "+parsed.error);
+      assert.equal(parsed.root,rootTag);
+      assert.equal(parsed.namespace,"http://www.sitemaps.org/schemas/sitemap/0.9");
+      if(expected!==null)assert.equal(parsed.locs.length,expected);
+      assert.equal(new Set(parsed.locs).size,parsed.locs.length);
+      assert(parsed.locs.every(url=>url.startsWith("https://webrpg.org/")));
+      urls[path]=parsed.locs;
+    }
+    assert.deepEqual(urls["/sitemap.xml"],[
+      "https://webrpg.org/sitemap-catalog.xml","https://webrpg.org/sitemap-play.xml",
+    ]);
+    assert(urls["/sitemap-catalog.xml"].includes("https://webrpg.org/en/game/"+sampleGame.slug+"/"));
+    assert(urls["/sitemap-play.xml"].includes("https://webrpg.org/rex-lam-Anti-FraudX/rpg_game.html"));
+    assert(!urls["/sitemap-catalog.xml"].some(url=>urls["/sitemap-play.xml"].includes(url)));
+    const robots=await page.request.get(http("/robots.txt"));
+    assert.equal(robots.status(),200);
+    assert.equal((await robots.text()).match(/^Sitemap: .*$/gm)?.length,1);
+  });
   await check("Root and English home return real 200 HTML, no client redirect",async()=>{
     const rootResponse=await page.goto(http("/"),{waitUntil:"domcontentloaded",timeout:35000});
     assert.equal(rootResponse.status(),200);

@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { readFile, readdir, writeFile, stat } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
+import { DOMParser } from "@xmldom/xmldom";
+import { getSitemapDiagnostics, SITEMAP_CHILDREN, SITEMAP_ORIGIN } from "../src/seo/sitemap-data.ts";
 
 const root = process.cwd();
 const dist = join(root, "dist");
@@ -161,18 +163,85 @@ for (const [path, page] of html) {
     }
   }
 }
-const xml = await readFile(join(dist, "sitemap.xml"), "utf8");
-const sitemap = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((x) => x[1]);
-assert(sitemap.length > 0 && new Set(sitemap).size === sitemap.length, "Sitemap empty or duplicate");
+// Parse XML with a real namespace-aware parser; regex cannot verify well-formed XML.
+const NS = "http://www.sitemaps.org/schemas/sitemap/0.9";
+const sitemapFiles = ["sitemap.xml", "sitemap-catalog.xml", "sitemap-play.xml"];
+const sitemapXmls = Object.fromEntries(await Promise.all(sitemapFiles.map(async (name) => [name,
+  await readFile(join(dist, name), "utf8")])));
+function parseSitemapXml(filename, rootName, entryName) {
+  const xml = sitemapXmls[filename];
+  const parser = new DOMParser({ onError: (level, message) => {
+    throw new Error(filename + ": XML " + level + ": " + message);
+  }});
+  const doc = parser.parseFromString(xml, "application/xml");
+  const rootElement = doc.documentElement;
+  assert(rootElement?.localName === rootName && rootElement.namespaceURI === NS,
+    filename + ": wrong XML root/namespace");
+  assert(xml.startsWith('<?xml version="1.0" encoding="UTF-8"?>'),
+    filename + ": expected UTF-8 XML declaration");
+  assert(!/<(?:lastmod|changefreq|priority)\b/.test(xml),
+    filename + ": fabricated date or unsupported priority/changefreq");
+  const elements = [...rootElement.childNodes].filter((node) => node.nodeType === 1);
+  const urls = [];
+  for (const element of elements) {
+    assert(element.localName === entryName && element.namespaceURI === NS,
+      filename + ": invalid item tag/namespace");
+    const children = [...element.childNodes].filter((node) => node.nodeType === 1);
+    assert(children.length === 1 && children[0].localName === "loc" &&
+      children[0].namespaceURI === NS, filename + ": each item must contain exactly one loc");
+    const url = children[0]?.textContent || "";
+    let parsed;
+    try { parsed = new URL(url); } catch { assert(false, filename + ": invalid loc " + url); continue; }
+    assert(parsed.origin === SITEMAP_ORIGIN && parsed.protocol === "https:" &&
+      !parsed.search && !parsed.hash && parsed.href === url,
+      filename + ": foreign or noncanonical loc " + url);
+    urls.push(url);
+  }
+  assert(new Set(urls).size === urls.length, filename + ": duplicate URL");
+  assert(urls.every((url, i) => !i || urls[i-1] < url),
+    filename + ": URLs must be deterministically sorted");
+  return urls;
+}
+const sitemapIndex = parseSitemapXml("sitemap.xml", "sitemapindex", "sitemap");
+const sitemap = parseSitemapXml("sitemap-catalog.xml", "urlset", "url");
+const playSitemap = parseSitemapXml("sitemap-play.xml", "urlset", "url");
+assert(JSON.stringify(sitemapIndex) === JSON.stringify([...SITEMAP_CHILDREN].sort()),
+  "Sitemap Index must list exactly the two expected children");
+assert(sitemap.length > 0, "Catalog Sitemap must not be empty");
+const sitemapSet = new Set(sitemap);
+const expectedCatalog = [...html.keys()].filter((path) =>
+  path !== "/" && path !== "/404.html" && robots.get(path) === "index,follow" &&
+  canonicals.get(path) === SITEMAP_ORIGIN + path).map((path) => SITEMAP_ORIGIN + path).sort();
+assert(sitemap.length === expectedCatalog.length &&
+  sitemap.every((url, i) => url === expectedCatalog[i]),
+  "Catalog sitemap must be exactly the set of self-canonical indexable generated pages");
 for (const url of sitemap) {
   const path = pageForUrl(url);
-  assert(!!path, "Sitemap target absent " + url);
+  assert(!!path, "Catalog target absent " + url);
   if (!path) continue;
-  assert(!robots.get(path)?.includes("noindex"), "Noindex in sitemap " + path);
-  assert(canonicals.get(path) === url, "Noncanonical in sitemap " + path);
+  assert(!robots.get(path)?.includes("noindex"), "Noindex in Catalog Sitemap " + path);
+  assert(canonicals.get(path) === url, "Noncanonical Catalog URL " + path);
 }
-assert(!sitemap.includes("https://webrpg.org/"), "Root duplicate in sitemap");
-const sitemapSet = new Set(sitemap);
+assert(!sitemapSet.has(SITEMAP_ORIGIN + "/"), "Root duplicate in Catalog Sitemap");
+const playDiagnostics = getSitemapDiagnostics(catalog, sitemap);
+const internalEligible = catalog.games.flatMap((game) => game.instances).filter((instance) =>
+  instance.type === "internal" && instance.available === true && !instance.needsReview);
+const eligibleUrls = [...new Set(internalEligible.map((instance) => instance.playUrl))].sort();
+assert(playSitemap.length === eligibleUrls.length &&
+  playSitemap.every((url, i) => url === eligibleUrls[i]),
+  "Play Sitemap must include all and only the technically eligible internal game URLs");
+assert(playDiagnostics.urls.length === playSitemap.length &&
+  playDiagnostics.urls.every((url, i) => url === playSitemap[i]),
+  "Play Sitemap differs from source-catalog diagnostics");
+const playSet = new Set(playSitemap);
+for (const url of playSitemap) {
+  assert(!sitemapSet.has(url), "Catalog/Play duplicate " + url);
+  assert(internalEligible.some((instance) => instance.playUrl === url), "Play URL not backed by a valid internal instance: " + url);
+  assert(!/\/(?:en|zh-Hans|ja|assets|_astro|images|fonts)\//.test(new URL(url).pathname.slice(0, 14)),
+    "Play Sitemap unexpectedly contains a website asset or catalog path " + url);
+}
+assert(playDiagnostics.candidates === catalog.games.reduce((sum, game) => sum + game.instances.length, 0),
+  "Instance diagnostics did not inspect all catalog entries");
 // Content-rating facets are browseable static HTML, but deliberately noindex to avoid
 // duplicating the canonical work directory. Their pagination must remain valid without JS.
 for (const locale of ["en", "zh-Hans", "ja"]) {
@@ -199,6 +268,10 @@ for (const game of catalog.games) {
 assert(!sitemap.some((url) => /\/game\//.test(url) && robots.get(new URL(url).pathname)?.includes("noindex")), "Noindex game appears in sitemap");
 assert((await readFile(join(dist, "CNAME"), "utf8")).trim() === "webrpg.org", "CNAME mismatch");
 assert(names.has("robots.txt"), "Missing robots.txt");
+const robotsTxt = await readFile(join(dist, "robots.txt"), "utf8");
+assert(robotsTxt.match(/^Sitemap: .*$/gm)?.length === 1 &&
+  robotsTxt.includes("Sitemap: https://webrpg.org/sitemap.xml"),
+  "robots.txt must only reference the stable Sitemap Index");
 assert(!names.has("list.json") && !names.has("games.json"), "Raw upstream JSON leaked into public dist");
 const pageCounts = {};
 for (const locale of ["en", "zh-Hans", "ja"]) pageCounts[locale] = [...html.keys()].filter((x) => x.startsWith("/" + locale + "/")).length;
@@ -210,6 +283,13 @@ const manifest = {
   catalogHash: catalog.catalogHash, adapterVersions: catalog.schemaVersions, stats: catalog.stats,
   pages: {total:html.size, byLocale:pageCounts, noindex, indexable:html.size-noindex,
     sitemap:sitemap.length, jsonLd:ldCount, inspectedInternalAnchors:linkCount},
+  sitemaps: {
+    index: {url: SITEMAP_ORIGIN + "/sitemap.xml", count: sitemapIndex.length, bytes: Buffer.byteLength(sitemapXmls["sitemap.xml"])},
+    catalog: {url: SITEMAP_CHILDREN[0], count: sitemap.length, bytes: Buffer.byteLength(sitemapXmls["sitemap-catalog.xml"])},
+    play: {url: SITEMAP_CHILDREN[1], count: playSitemap.length, bytes: Buffer.byteLength(sitemapXmls["sitemap-play.xml"])},
+    candidates: playDiagnostics.candidates, internalCandidates: playDiagnostics.internalCandidates,
+    excludedByReason: playDiagnostics.excludedByReason, excludedRecords: playDiagnostics.excluded,
+  },
   routesHash:hash([...html.keys()].sort().join("\n")), searchIndexes:catalog.searchFiles,
   warnings:catalog.warnings.length, violations:errors,
 };
