@@ -4,7 +4,7 @@ WebRPG organizes **games (works)**, not GitHub repositories. Each work has a loc
 
 ## Architecture
 
-- Astro 7 SSG renders full static HTML: three homes, Game details, tags/themes, actual playable languages, 36-games/page pagination, canonical/hreflang, OG, structured data, sitemap and robots.
+- Astro 7 SSG renders full static HTML: three homes, Game details, tags/themes, actual playable languages, 36-games/page pagination, canonical/hreflang, OG, structured data, a Sitemap Index (catalog + original internal game runtime URLs), and robots.
 - React 19 hydrates only the search/combined filters and optional browser-language suggestion. Static game cards are rendered via existing Pixelact React UI on the server without client hydration.
 - Original Zpix font, site background, warm Pixelact UI and CSS are preserved. Covers retain original Index URLs for SEO but render through `i.ravelloh.com` at browser-selected widths (native `srcset`/`sizes`, AVIF/WebP negotiation). Directory heading, rating legend and content-rating filters are grouped in a header-style pixel card, with refined responsive game details and aligned action buttons.
 - Stable default order: the existing numeric `games.json` popularity indicator descending (1–9 in the pinned snapshot), with the **English work title** and then slug as universal tie breakers across all locales and the search browse index. In the latest fetched snapshot, all 549 works have a source popularity value; it is an editorial popularity estimate, not live traffic or user reviews. The separate source `rating` remains an optional display-only editorial score for 78 of 549 works. Never fabricate aggregate user ratings or feed popularity into search relevance or structured rating data.
@@ -13,7 +13,7 @@ WebRPG organizes **games (works)**, not GitHub repositories. Each work has a loc
 
 ## Project directories
 
-    src/pages/             Astro homes, game details, taxonomies, pagination, sitemap, 404
+    src/pages/             Astro homes, game details, taxonomies, pagination, three Sitemap XMLs, 404
     src/layouts/           BaseLayout and CatalogLayout
     src/components/game/   Pixelact server GameCard and Astro details
     src/components/interactive/  search and language suggestion React Islands
@@ -22,7 +22,7 @@ WebRPG organizes **games (works)**, not GitHub repositories. Each work has a loc
     src/components/ui/pixelact-ui/  original UI library
     src/data/              normalized build-time catalog
     src/i18n/              three locale messages, route contracts
-    src/seo/               schema.org builders, verified localized SEO title/description helpers
+    src/seo/               schema.org, metadata, Sitemap source filtering and strict XML serializers
     src/styles/            responsive pixel-theme additions
     src/lib/cover-image.ts  responsive image-proxy URLs, card/detail sizes, origin allowlist
     scripts/               immutable source, schema validation, build, SEO and browser gates
@@ -51,7 +51,7 @@ Checks:
     npm run ci              # full static release gates
     npm run test:browser    # real Edge/Chrome desktop, 320/390px mobile, no JS smoke
 
-Build report: `dist/build-manifest.json` with frontend and source commits, upstream file hashes, catalog hash, routes hash, schema adapters and noindex/sitemap totals. Screenshot evidence: `docs/acceptance/screenshots/`.
+Build report: `dist/build-manifest.json` with frontend and source commits, upstream file hashes, catalog hash, routes hash, schema adapters, noindex/Sitemap counts and per-instance Play exclusion reasons. Screenshot evidence: `docs/acceptance/screenshots/`.
 
 ### Responsive covers
 
@@ -70,4 +70,4 @@ Build report: `dist/build-manifest.json` with frontend and source commits, upstr
 - Optional content rating filter: `/<locale>/nsfw/safe/`, `/<locale>/nsfw/adult/`, `/<locale>/nsfw/unknown/`, with static `page/<N>/` pagination. These are browseable but deliberately `noindex` and excluded from Sitemap to prevent duplicate taxonomy search results. Adult and unknown works remain present on the unfiltered homepage.
 - Existing independent GitHub Project Pages such as `https://webrpg.org/<forkName>/...` are **not moved, redirected or changed**. Original deep `pagesUrl` entries are preserved. Reserved-path collisions fail the build.
 
-CI never deploys from pull requests. The GitHub Pages workflow responds to main pushes, manual dispatch, and index-update dispatch. To cover the index repository's missing dispatch sender, it also performs a read-only scheduled Index check every six hours after this workflow reaches the default branch. Unchanged Index/front-end SHAs skip builds; changed SHAs trigger full validation, and only a changed normalized catalog, route set, or frontend commit authorizes publication. Manual dispatch supports pinned frontend_ref and index_ref for rollback. See `docs/acceptance/deployment.md` and `docs/acceptance/f11-index-update.md`. SEO title/description metadata is kept separate from full visible editorial summaries. Factual catalog fields supplement short descriptions; long metadata is condensed without fabricating content. OpenGraph/Twitter image metadata is present even for works without a cover, using the site logo as the fallback. Unknown credit entities remain in visible HTML without inventing `Person`/`Organization` types in JSON-LD. Static verification checks title uniqueness, description bounds, canonical hreflang and valid image metadata. The site intentionally emits one `sitemap.xml`; `/` is excluded because its canonical is `/en/`. Actual scheduled GitHub runner behavior, game assets/saves and Search Console canonical behavior still require live acceptance.
+CI never deploys from pull requests. The GitHub Pages workflow responds to main pushes, manual dispatch, and index-update dispatch. To cover the index repository's missing dispatch sender, it also performs a read-only scheduled Index check every six hours after this workflow reaches the default branch. Unchanged Index/front-end SHAs skip builds; changed SHAs trigger full validation, and only a changed normalized catalog, route set, or frontend commit authorizes publication. Manual dispatch supports pinned frontend_ref and index_ref for rollback. See `docs/acceptance/deployment.md` and `docs/acceptance/f11-index-update.md`. SEO title/description metadata is kept separate from full visible editorial summaries. Factual catalog fields supplement short descriptions; long metadata is condensed without fabricating content. OpenGraph/Twitter image metadata is present even for works without a cover, using the site logo as the fallback. Unknown credit entities remain in visible HTML without inventing `Person`/`Organization` types in JSON-LD. Static verification checks title uniqueness, description bounds, canonical hreflang and valid image metadata. `/sitemap.xml` is the stable Sitemap Index pointing to `/sitemap-catalog.xml` (only self-canonical indexable SSG content) and `/sitemap-play.xml` (only valid, available, non-review internal game instance URLs, preserving exact filenames/case). `/` is excluded because its canonical is `/en/`; no duplicate or fabricated lastmod entries are generated. See `docs/acceptance/sitemap-index-refactor.md` and the historical URL candidate diff. Actual scheduled GitHub runner behavior, game assets/saves and Search Console canonical behavior still require live acceptance.
