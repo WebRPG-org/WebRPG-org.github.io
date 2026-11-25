@@ -1,3 +1,4 @@
+import { eventAttrs, track } from "@/lib/analytics";
 import * as React from "react";
 import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/pixelact-ui/input";
@@ -24,6 +25,8 @@ export default function SearchDialog({ locale, indexUrl, availableLanguages, ava
   const inputRef = React.useRef<HTMLInputElement>(null);
   const opener = React.useRef<HTMLButtonElement>(null);
   const composing = React.useRef(false);
+  const [isComposing, setIsComposing] = React.useState(false);
+  const lastSearch = React.useRef("");
 
   React.useEffect(() => {
     if (!open || index) return;
@@ -57,6 +60,25 @@ export default function SearchDialog({ locale, indexUrl, availableLanguages, ava
   }, [query, index, language, tag, includeUnrated]);
 
   const limited = results.slice(0, visibleCount);
+  const searchKey = JSON.stringify([query.trim(), language, tag, includeUnrated]);
+  const searchData = React.useMemo(() => ({
+    locale, queryLength: query.trim().length, resultCount: results.length,
+    language, tag, includeUnrated,
+  }), [locale, query, results.length, language, tag, includeUnrated]);
+  const reportSearch = React.useCallback(() => {
+    if (!index || composing.current || (!query.trim() && !language && !tag && includeUnrated) || lastSearch.current === searchKey) return;
+    lastSearch.current = searchKey;
+    track("game_search", searchData);
+  }, [index, query, language, tag, includeUnrated, searchKey, searchData]);
+  React.useEffect(() => {
+    if (!open || isComposing || !index) return;
+    const timer = window.setTimeout(reportSearch, 900);
+    return () => window.clearTimeout(timer);
+  }, [open, isComposing, index, reportSearch]);
+  function selectResult(item: SearchEntry, position: number) {
+    reportSearch();
+    track("game_search_result_click", { gameSlug: item.slug, locale, source: "search", position, resultCount: results.length });
+  }
   function onKeyDown(event: React.KeyboardEvent) {
     if (event.key === "Tab") {
       const controls = [...event.currentTarget.querySelectorAll<HTMLElement>('input:not([disabled]), button:not([disabled]), select:not([disabled]), a[href]')]
@@ -81,12 +103,13 @@ export default function SearchDialog({ locale, indexUrl, availableLanguages, ava
     if (event.key === "ArrowUp") { setActive((x) => Math.max(0, x - 1)); event.preventDefault(); }
     if (event.key === "Enter" && typing && !composing.current && !event.nativeEvent.isComposing && limited[active]) {
       event.preventDefault();
+      selectResult(limited[active], active + 1);
       window.location.assign(limited[active].href);
     }
   }
 
   return <div className="search-interface">
-    <button ref={opener} className="search-bar-button" type="button" onClick={() => setOpen(true)}>
+    <button ref={opener} className="search-bar-button" type="button" {...eventAttrs("game_search_open", { locale })} onClick={() => { lastSearch.current = ""; setOpen(true); }}>
       <span><Search size={18} style={{ display: "inline-block", verticalAlign: "middle", marginRight: 12 }} />{copy.searchPlaceholder}</span>
       <span>{copy.search}</span>
     </button>
@@ -94,7 +117,7 @@ export default function SearchDialog({ locale, indexUrl, availableLanguages, ava
       <section className="search-panel" role="dialog" aria-modal="true" aria-label={copy.search} onKeyDown={onKeyDown}>
         <div className="search-head">
           <Input ref={inputRef} value={query} onChange={(event) => { setQuery(event.target.value); resetResults(); }}
-            onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }}
+            onCompositionStart={() => { composing.current = true; setIsComposing(true); }} onCompositionEnd={() => { composing.current = false; setIsComposing(false); }}
             placeholder={copy.searchPlaceholder} aria-label={copy.search} />
           <button type="button" onClick={() => setOpen(false)} aria-label={copy.close}><X size={20}/></button>
         </div>
@@ -113,7 +136,7 @@ export default function SearchDialog({ locale, indexUrl, availableLanguages, ava
           {!index && !error ? <p>{copy.searchHint}…</p> : null}
           {error && <p role="alert">{error} <button type="button" onClick={() => { setIndex(null); setError(""); setOpen(false); requestAnimationFrame(() => setOpen(true)); }}>{copy.search}</button></p>}
           {index && limited.length === 0 && <p>{copy.noResults}</p>}
-          {limited.map((item, i) => <a href={item.href} key={item.slug} data-active={active === i} role="option" aria-selected={active === i} onMouseEnter={() => setActive(i)}>
+          {limited.map((item, i) => <a href={item.href} key={item.slug} data-active={active === i} role="option" aria-selected={active === i} onMouseEnter={() => setActive(i)} onClick={() => selectResult(item, i + 1)}>
             <strong>{item.title}</strong> {item.nsfw === "unknown" ? " · " + copy.unknown : item.nsfw ? " · " + copy.adult : ""}
             <small>{item.summary.slice(0, 130) || item.originalTitle}</small>
           </a>)}

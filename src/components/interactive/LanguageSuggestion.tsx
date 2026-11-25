@@ -1,3 +1,4 @@
+import { eventAttrs } from "../../lib/analytics";
 import * as React from "react";
 import { LABEL, UI, type Locale } from "../../i18n/ui";
 import { selectSuggestion } from "../../../scripts/locale-preference.mjs";
@@ -42,9 +43,9 @@ export default function LanguageSuggestion({ locale, targets, available }: Props
   return <aside className="language-suggestion" role="region" aria-label={copy.switch}>
     <p>{copy.browser} {copy.suggest} <strong>{LABEL[suggestion]}</strong>?</p>
     <div className="suggestion-actions">
-      <a href={targets[suggestion]} onClick={() => remember(suggestion)}>{copy.switch}</a>
-      <button type="button" onClick={() => dismiss()}>{copy.dismiss}</button>
-      <button type="button" onClick={() => dismiss(true)}>{copy.never}</button>
+      <a href={targets[suggestion]} {...eventAttrs("catalog_language_suggestion", { locale, targetLocale: suggestion, action: "accept" })} onClick={() => remember(suggestion)}>{copy.switch}</a>
+      <button type="button" onClick={() => dismiss()} {...eventAttrs("catalog_language_suggestion", { locale, targetLocale: suggestion, action: "dismiss" })}>{copy.dismiss}</button>
+      <button type="button" onClick={() => dismiss(true)} {...eventAttrs("catalog_language_suggestion", { locale, targetLocale: suggestion, action: "never" })}>{copy.never}</button>
     </div>
   </aside>;
 }

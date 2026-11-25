@@ -4,6 +4,7 @@ import { GameCard } from "../components/game/GameCard";
 import CatalogPagination from "../components/catalog/Pagination.astro";
 import SearchDialog from "../components/interactive/SearchDialog";
 import { UI, taxonomyLabel, langLabel } from "../i18n/ui";
+import { eventAttrs } from "../lib/analytics";
 import { catalog, sortedGames, pageSlice, tags, languages, pageCount, filterNsfw, nsfwGroups, type GameView } from "../data/catalog";
 import { routeUrl, type Route } from "../i18n/routes";
 import { collectionSchema, absolute } from "../seo/schema";
@@ -59,19 +60,19 @@ const nsfwLabel = (group: typeof nsfwGroups[number]) => group === "safe" ? copy.
         <div class="catalog-directory-body catalog-browse-panel catalog-browse-panel--types">
           <nav class="category-nav" aria-label={copy.genres}>
             <a href={"/" + locale + "/"} aria-current={route.kind === "home" ? "page" : undefined}>{copy.all}</a>
-            {tags.map((tag) => <a href={"/" + locale + "/tags/" + tag + "/"} aria-current={route.kind === "tags" && route.slug === tag ? "page" : undefined}>{taxonomyLabel(tag, locale)}</a>)}
+            {tags.map((tag) => <a href={"/" + locale + "/tags/" + tag + "/"} {...eventAttrs("catalog_filter_select", { locale, source: "directory", kind: "tag", value: tag })} aria-current={route.kind === "tags" && route.slug === tag ? "page" : undefined}>{taxonomyLabel(tag, locale)}</a>)}
           </nav>
         </div>
         <div class="catalog-directory-body catalog-browse-panel catalog-browse-panel--languages">
           <nav class="category-nav" aria-label={copy.languages}>
             <a href={"/" + locale + "/"} aria-current={route.kind !== "languages" ? "page" : undefined}>{copy.allLanguages}</a>
-            {languages.map((language) => <a href={"/" + locale + "/languages/" + language + "/"} aria-current={route.kind === "languages" && route.slug === language ? "page" : undefined}>{langLabel(language, locale)}</a>)}
+            {languages.map((language) => <a href={"/" + locale + "/languages/" + language + "/"} {...eventAttrs("catalog_filter_select", { locale, source: "directory", kind: "language", value: language })} aria-current={route.kind === "languages" && route.slug === language ? "page" : undefined}>{langLabel(language, locale)}</a>)}
           </nav>
         </div>
         <div class="catalog-directory-body catalog-browse-panel catalog-browse-panel--age">
           <nav class="category-nav" aria-label={copy.nsfwFilter}>
             <a href={"/" + locale + "/"} aria-current={route.kind !== "nsfw" ? "page" : undefined}>{copy.nsfwAll} ({catalog.games.length})</a>
-            {nsfwGroups.map((group) => <a href={"/" + locale + "/nsfw/" + group + "/"} aria-current={route.kind === "nsfw" && route.slug === group ? "page" : undefined}>
+            {nsfwGroups.map((group) => <a href={"/" + locale + "/nsfw/" + group + "/"} {...eventAttrs("catalog_filter_select", { locale, source: "directory", kind: "age", value: group })} aria-current={route.kind === "nsfw" && route.slug === group ? "page" : undefined}>
               {nsfwLabel(group)} ({filterNsfw(group).length})
             </a>)}
           </nav>
@@ -83,7 +84,7 @@ const nsfwLabel = (group: typeof nsfwGroups[number]) => group === "safe" ? copy.
       <span>{copy.page} {page} {copy.of} {totalPages}</span>
     </div>
     <div class="catalog-grid">
-      {visible.map((game) => <GameCard game={game} locale={locale} />)}
+      {visible.map((game, index) => <GameCard game={game} locale={locale} position={index + 1} />)}
     </div>
     <CatalogPagination locale={locale} route={route} page={page} total={totalPages} />
   </main>

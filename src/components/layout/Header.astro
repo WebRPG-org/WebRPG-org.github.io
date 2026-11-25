@@ -1,4 +1,5 @@
 ---
+import { eventAttrs } from "../../lib/analytics";
 import type { Locale } from "../../i18n/ui";
 import type { Route } from "../../i18n/routes";
 import { LOCALES, LABEL, UI } from "../../i18n/ui";
@@ -22,6 +23,7 @@ const copy = UI[locale];
       {LOCALES.map((item) => <a
         href={safeRouteUrl(item, route)}
         data-webrpg-language={item}
+        {...(locale !== item ? eventAttrs("catalog_language_switch", { locale, targetLocale: item, source: "header" }) : {})}
         aria-current={locale === item ? "page" : undefined}
         class:list={["pixel__button", "pixel-font", "language-button", "language-link", locale === item ? "pixel-default__button" : "pixel-secondary__button"]}
         >{LABEL[item]}</a>)}

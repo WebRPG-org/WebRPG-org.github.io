@@ -71,3 +71,15 @@ Build report: `dist/build-manifest.json` with frontend and source commits, upstr
 - Existing independent GitHub Project Pages such as `https://webrpg.org/<forkName>/...` are **not moved, redirected or changed**. Original deep `pagesUrl` entries are preserved. Reserved-path collisions fail the build.
 
 CI never deploys from pull requests. The GitHub Pages workflow responds to main pushes, manual dispatch, and index-update dispatch. To cover the index repository's missing dispatch sender, it also performs a read-only scheduled Index check every six hours after this workflow reaches the default branch. Unchanged Index/front-end SHAs skip builds; changed SHAs trigger full validation, and only a changed normalized catalog, route set, or frontend commit authorizes publication. Manual dispatch supports pinned frontend_ref and index_ref for rollback. See `docs/acceptance/deployment.md` and `docs/acceptance/f11-index-update.md`. SEO title/description metadata is kept separate from full visible editorial summaries. Factual catalog fields supplement short descriptions; long metadata is condensed without fabricating content. OpenGraph/Twitter image metadata is present even for works without a cover, using the site logo as the fallback. Unknown credit entities remain in visible HTML without inventing `Person`/`Organization` types in JSON-LD. Static verification checks title uniqueness, description bounds, canonical hreflang and valid image metadata. `/sitemap.xml` is the stable Sitemap Index pointing to `/sitemap-catalog.xml` (only self-canonical indexable SSG content) and `/sitemap-play.xml` (only valid, available, non-review internal game instance URLs, preserving exact filenames/case). `/` is excluded because its canonical is `/en/`; no duplicate or fabricated lastmod entries are generated. See `docs/acceptance/sitemap-index-refactor.md` and the historical URL candidate diff. Actual scheduled GitHub runner behavior, game assets/saves and Search Console canonical behavior still require live acceptance.
+
+
+## Analytics events
+
+The existing InsightFlare tracker handles declarative click attributes on
+server-rendered links. Search additionally calls the optional tracker API for
+debounced search and mouse/keyboard result selection. Event payloads use stable
+gameSlug/instanceId, source, locale and position when available. Search sends
+query length and result count, never the original query text. No new analytics
+endpoint or tracker is installed. Actual game readiness and engagement are
+reported separately by WebRPG Toolkit. Run the focused browser verification
+after building: node scripts/browser-analytics.mjs.

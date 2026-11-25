@@ -1,4 +1,5 @@
 ---
+import { eventAttrs } from "../../lib/analytics";
 import type { GameView } from "../../data/catalog";
 import type { Locale } from "../../i18n/ui";
 import { UI, taxonomyLabel, langLabel } from "../../i18n/ui";
@@ -96,7 +97,7 @@ const availableLanguageCodes = [...new Set(game.languages)];
           </div>
           <div class="instance-actions">
             {item.available === true && !item.needsReview ?
-              <a class="instance-play pixel__button pixel-default__button pixel-font" href={item.playUrl} target="_blank" rel="noopener noreferrer">{copy.play} <span aria-hidden="true">↗</span></a> :
+              <a class="instance-play pixel__button pixel-default__button pixel-font" href={item.playUrl} {...eventAttrs("game_play_click", { gameSlug: game.slug, instanceId: item.id, instanceType: item.type, source: "detail", locale, position: index + 1, engine: item.engine })} target="_blank" rel="noopener noreferrer">{copy.play} <span aria-hidden="true">↗</span></a> :
               <span class="instance-unavailable">{copy.unavailable}</span>}
           </div>
         </div>)}
@@ -115,21 +116,21 @@ const availableLanguageCodes = [...new Set(game.languages)];
     {sourceLinks.length > 0 && <section class="detail-section">
       <div class="detail-section-heading"><h2>{copy.source}</h2></div>
       <ul class="detail-source-list">
-        {sourceLinks.map((link) => <li><a href={link.url} rel="noopener noreferrer" target="_blank">{link.label} <span aria-hidden="true">↗</span></a></li>)}
+        {sourceLinks.map((link) => <li><a href={link.url} {...eventAttrs("game_external_link_click", { gameSlug: game.slug, locale, source: "source" })} rel="noopener noreferrer" target="_blank">{link.label} <span aria-hidden="true">↗</span></a></li>)}
       </ul>
     </section>}
 
     {otherLinks.length > 0 && <section class="detail-section">
       <div class="detail-section-heading"><h2>{copy.externalLinks}</h2></div>
       <ul class="detail-external-list">
-        {otherLinks.map((link) => <li><a href={link.url} rel="noopener noreferrer" target="_blank">{link.label} <span aria-hidden="true">↗</span></a></li>)}
+        {otherLinks.map((link) => <li><a href={link.url} {...eventAttrs("game_external_link_click", { gameSlug: game.slug, locale, source: "related_link" })} rel="noopener noreferrer" target="_blank">{link.label} <span aria-hidden="true">↗</span></a></li>)}
       </ul>
     </section>}
 
     {related.length > 0 && <section class="detail-section">
       <div class="detail-section-heading"><h2>{copy.related}</h2></div>
       <ul class="detail-related-list">
-        {related.map((item) => <li><span>{relationLabel(item.type, locale)}</span><a href={"/" + locale + "/game/" + item.game.slug + "/"}>{item.game.titleByLocale[locale]}</a></li>)}
+        {related.map((item) => <li><span>{relationLabel(item.type, locale)}</span><a href={"/" + locale + "/game/" + item.game.slug + "/"} {...eventAttrs("game_recommendation_click", { gameSlug: item.game.slug, fromGameSlug: game.slug, source: "related", locale })}>{item.game.titleByLocale[locale]}</a></li>)}
       </ul>
     </section>}
   </article>
@@ -137,7 +138,7 @@ const availableLanguageCodes = [...new Set(game.languages)];
     <h2>{copy.similarGames}</h2>
     <p>{copy.similarExplanation}</p>
     <div class="catalog-grid detail-similar-grid">
-      {recommended.map((other) => <GameCard game={other} locale={locale} />)}
+      {recommended.map((other, index) => <GameCard game={other} locale={locale} source="similar" position={index + 1} />)}
     </div>
   </section>}
 </main>
