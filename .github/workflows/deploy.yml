@@ -6,6 +6,11 @@ on:
       - main
   workflow_dispatch:
     inputs:
+      scheduled_poll:
+        description: Run the same incremental check as scheduled CI (external scheduler)
+        required: false
+        type: boolean
+        default: false
       frontend_ref:
         description: Frontend commit to build (rollback only; defaults to workflow commit)
         required: false
@@ -48,13 +53,13 @@ jobs:
           cache-dependency-path: package-lock.json
       - name: Read-only scheduled Index preflight
         id: index_poll
-        if: github.event_name == 'schedule'
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.scheduled_poll)
         run: node scripts/check-index-update.mjs preflight
       - name: Install dependencies
-        if: github.event_name != 'schedule' || steps.index_poll.outputs.should_build == 'true'
+        if: (github.event_name != 'schedule' && !inputs.scheduled_poll) || steps.index_poll.outputs.should_build == 'true'
         run: npm ci
       - name: Validate snapshot, full catalog, HTML/SEO and legacy route reservation
-        if: github.event_name != 'schedule' || steps.index_poll.outputs.should_build == 'true'
+        if: (github.event_name != 'schedule' && !inputs.scheduled_poll) || steps.index_poll.outputs.should_build == 'true'
         env:
           INDEX_REF: ${{ inputs.index_ref || github.event.client_payload.index_ref || steps.index_poll.outputs.index_sha || '' }}
           ASTRO_TELEMETRY_DISABLED: '1'
@@ -62,7 +67,7 @@ jobs:
       - name: Compare published catalog with fully validated build
         id: release_gate
         env:
-          IS_SCHEDULED: ${{ github.event_name == 'schedule' }}
+          IS_SCHEDULED: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.scheduled_poll) }}
           POLL_SHOULD_BUILD: ${{ steps.index_poll.outputs.should_build }}
         shell: bash
         run: |
